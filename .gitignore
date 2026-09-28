@@ -1,0 +1,8 @@
+*.zip
+*.bak
+.vercel
+.DS_Store
+Thumbs.db
+*.log
+
+.vercel

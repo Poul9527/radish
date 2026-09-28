@@ -1,0 +1,4272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>甜味密码 —— AI 虚拟显微镜实验室</title>
+  <!-- ECharts CDN 引入 -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+  <style>
+    :root {
+      --bg-dark: #070B19;
+      --bg-card: rgba(14, 22, 45, 0.88);
+      --bg-card-hover: rgba(22, 35, 71, 0.95);
+      --border-glow: rgba(0, 240, 255, 0.35);
+      --border-gold: rgba(255, 184, 0, 0.45);
+      --cyan-neon: #00F0FF;
+      --gold-neon: #FFB800;
+      --green-neon: #10B981;
+      --blue-ice: #60A5FA;
+      --purple-light: #A78BFA;
+      --text-main: #F1F5F9;
+      --text-muted: #94A3B8;
+      --shadow-holo: 0 8px 32px 0 rgba(0, 240, 255, 0.18);
+      --shadow-gold: 0 8px 32px 0 rgba(255, 184, 0, 0.25);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      background: linear-gradient(135deg, rgba(7, 11, 25, 0.94), rgba(10, 18, 42, 0.96)), url('./images/01_lab_entry.jpg') center/cover fixed no-repeat;
+      color: var(--text-main);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* 科技感动态背景粒子与网格 */
+    .holo-grid {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-image: 
+        linear-gradient(to right, rgba(0, 240, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0, 240, 255, 0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .holo-glow-orb {
+      position: fixed;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      filter: blur(140px);
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.18;
+    }
+    .orb-1 { top: -100px; left: -100px; background: #00F0FF; }
+    .orb-2 { bottom: -150px; right: -100px; background: #FFB800; }
+
+    /* 顶部导航与全息标题栏 */
+    .top-header {
+      position: relative;
+      z-index: 10;
+      padding: 14px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(10, 16, 35, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-glow);
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-logo-hex {
+      width: 46px;
+      height: 46px;
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.2), rgba(255, 184, 0, 0.25));
+      border: 1.5px solid var(--cyan-neon);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.35);
+      animation: pulseBorder 3s infinite alternate;
+    }
+
+    @keyframes pulseBorder {
+      0% { box-shadow: 0 0 8px rgba(0, 240, 255, 0.3); border-color: var(--cyan-neon); }
+      100% { box-shadow: 0 0 20px rgba(255, 184, 0, 0.5); border-color: var(--gold-neon); }
+    }
+
+    .brand-titles h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      background: linear-gradient(90deg, #FFFFFF, var(--cyan-neon), var(--gold-neon));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-titles .badge-tag {
+      font-size: 0.72rem;
+      padding: 2px 8px;
+      background: rgba(0, 240, 255, 0.15);
+      border: 1px solid var(--cyan-neon);
+      border-radius: 4px;
+      color: var(--cyan-neon);
+      font-weight: 600;
+      -webkit-text-fill-color: var(--cyan-neon);
+    }
+
+    .brand-titles p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn-action {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.25s ease;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--text-main);
+    }
+
+    .btn-action:hover {
+      background: rgba(0, 240, 255, 0.15);
+      border-color: var(--cyan-neon);
+      color: var(--cyan-neon);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
+      transform: translateY(-1px);
+    }
+
+    .btn-evidence {
+      background: linear-gradient(135deg, rgba(255, 184, 0, 0.18), rgba(255, 120, 0, 0.18));
+      border-color: var(--border-gold);
+      color: var(--gold-neon);
+    }
+
+    .btn-evidence:hover {
+      background: linear-gradient(135deg, rgba(255, 184, 0, 0.28), rgba(255, 120, 0, 0.32));
+      border-color: var(--gold-neon);
+      color: #FFF;
+      box-shadow: var(--shadow-gold);
+    }
+
+    /* 站点标签导航 (Tab Stations) */
+    .station-nav-bar {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      justify-content: center;
+      padding: 12px 20px;
+      gap: 12px;
+      background: rgba(10, 17, 36, 0.6);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      flex-wrap: wrap;
+    }
+
+    .station-tab-btn {
+      padding: 10px 20px;
+      border-radius: 30px;
+      background: rgba(17, 28, 59, 0.7);
+      border: 1px solid rgba(0, 240, 255, 0.18);
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .station-tab-btn .station-num {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.72rem;
+      color: #FFF;
+    }
+
+    .station-tab-btn:hover {
+      color: #FFF;
+      border-color: var(--cyan-neon);
+      background: rgba(0, 240, 255, 0.12);
+      transform: translateY(-2px);
+    }
+
+    .station-tab-btn.active {
+      color: #FFF;
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.25), rgba(16, 185, 129, 0.25));
+      border-color: var(--cyan-neon);
+      box-shadow: 0 0 18px rgba(0, 240, 255, 0.35);
+    }
+
+    .station-tab-btn.active .station-num {
+      background: var(--cyan-neon);
+      color: #070B19;
+      font-weight: 700;
+    }
+
+    /* 主内容视窗容器 */
+    .main-stage {
+      position: relative;
+      z-index: 5;
+      max-width: 1400px;
+      margin: 18px auto;
+      padding: 0 20px 80px;
+    }
+
+    .station-content-panel {
+      display: none;
+      animation: fadeInStage 0.4s ease forwards;
+    }
+
+    .station-content-panel.active {
+      display: block;
+    }
+
+    @keyframes fadeInStage {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 卡片公共样式 */
+    .lab-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-glow);
+      border-radius: 18px;
+      padding: 24px;
+      backdrop-filter: blur(14px);
+      box-shadow: var(--shadow-holo);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .lab-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--cyan-neon), transparent);
+    }
+
+    .card-title-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .card-title-bar h2 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #FFF;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card-title-bar .subtitle {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    /* ========================================================
+       🌟 01_lab_entry: AI 实验室入口 Hero 横幅
+       ======================================================== */
+    .lab-entry-hero-banner {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 20px;
+      border: 1.5px solid var(--border-glow);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      height: 230px;
+      display: flex;
+      align-items: center;
+    }
+
+    .lab-entry-hero-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: brightness(0.72) contrast(1.1);
+      transition: transform 10s ease;
+    }
+
+    .lab-entry-hero-banner:hover .lab-entry-hero-bg {
+      transform: scale(1.03);
+    }
+
+    .lab-entry-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, rgba(7, 11, 25, 0.95) 0%, rgba(7, 11, 25, 0.7) 50%, rgba(7, 11, 25, 0.3) 100%);
+      z-index: 1;
+    }
+
+    .lab-entry-content {
+      position: relative;
+      z-index: 2;
+      padding: 0 36px;
+      max-width: 650px;
+    }
+
+    .lab-entry-content h3 {
+      font-size: 1.45rem;
+      font-weight: 800;
+      color: #FFF;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-shadow: 0 0 10px rgba(0, 240, 255, 0.6);
+    }
+
+    .lab-entry-content p {
+      font-size: 0.86rem;
+      color: #CBD5E1;
+      margin: 8px 0 16px;
+      line-height: 1.5;
+    }
+
+    /* ========================================================
+       🔬 站点一：3D 全息虚拟显微镜 (3D Microscopic Lab)
+       ======================================================== */
+    .scope-outer-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* 7 阶段微观阶梯导航栏 */
+    .scope-step-breadcrumbs {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(10, 18, 38, 0.85);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      border-radius: 14px;
+      padding: 10px 16px;
+      gap: 6px;
+      overflow-x: auto;
+      backdrop-filter: blur(10px);
+    }
+
+    .breadcrumb-step-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .breadcrumb-step-item .step-badge {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      color: #FFF;
+    }
+
+    .breadcrumb-step-item:hover {
+      border-color: var(--cyan-neon);
+      color: #FFF;
+      background: rgba(0, 240, 255, 0.1);
+    }
+
+    .breadcrumb-step-item.active {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.25), rgba(255, 184, 0, 0.2));
+      border-color: var(--cyan-neon);
+      color: #FFF;
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.35);
+    }
+
+    .breadcrumb-step-item.active .step-badge {
+      background: var(--cyan-neon);
+      color: #070B19;
+      font-weight: 800;
+    }
+
+    .breadcrumb-arrow {
+      color: rgba(255, 255, 255, 0.25);
+      font-size: 0.8rem;
+    }
+
+    /* 顶部高亮操作按钮栏 */
+    .scope-action-bar-hero {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .zoom-btn-group-main {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn-zoom-hero {
+      padding: 12px 26px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+      border: none;
+      outline: none;
+    }
+
+    .btn-zoom-in-primary {
+      background: linear-gradient(135deg, #00F0FF, #3B82F6, #10B981);
+      color: #070B19;
+      box-shadow: 0 0 22px rgba(0, 240, 255, 0.5);
+      animation: pulseZoomBtn 2.5s infinite alternate;
+    }
+
+    @keyframes pulseZoomBtn {
+      0% { box-shadow: 0 0 14px rgba(0, 240, 255, 0.4); transform: scale(1); }
+      100% { box-shadow: 0 0 28px rgba(0, 240, 255, 0.75); transform: scale(1.02); }
+    }
+
+    .btn-zoom-in-primary:hover {
+      transform: scale(1.06) translateY(-2px);
+      box-shadow: 0 0 32px rgba(0, 240, 255, 0.85);
+    }
+
+    .btn-zoom-out-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1.5px solid rgba(255, 255, 255, 0.2);
+      color: #F1F5F9;
+    }
+
+    .btn-zoom-out-secondary:hover {
+      background: rgba(255, 255, 255, 0.16);
+      border-color: #FFF;
+      transform: translateY(-2px);
+    }
+
+    .btn-auto-tour {
+      background: linear-gradient(135deg, rgba(255, 184, 0, 0.2), rgba(245, 158, 11, 0.25));
+      border: 1.5px solid var(--gold-neon);
+      color: var(--gold-neon);
+      padding: 10px 18px;
+      border-radius: 12px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.25s ease;
+    }
+
+    .btn-auto-tour:hover {
+      background: var(--gold-neon);
+      color: #070B19;
+      box-shadow: var(--shadow-gold);
+      transform: translateY(-2px);
+    }
+
+    /* 3D 显微镜主视窗与侧边布局 */
+    .scope-grid-layout {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 20px;
+    }
+
+    @media (max-width: 992px) {
+      .scope-grid-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* 3D 金属镜筒机架外框 */
+    .scope-3d-barrel-chassis {
+      position: relative;
+      background: radial-gradient(circle at 50% 50%, #060B1C 0%, #030611 100%);
+      border: 3px solid rgba(0, 240, 255, 0.4);
+      border-radius: 20px;
+      height: 580px;
+      overflow: hidden;
+      box-shadow: 
+        inset 0 0 60px rgba(0, 0, 0, 0.9),
+        0 14px 45px rgba(0, 0, 0, 0.8),
+        0 0 35px rgba(0, 240, 255, 0.25);
+      perspective: 1200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+    }
+
+    .scope-3d-barrel-chassis:active {
+      cursor: grabbing;
+    }
+
+    /* 显微镜光学多层镀膜反光镜片 (跟随鼠标 3D 偏转) */
+    .scope-optical-glare {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 6;
+      background: radial-gradient(circle at var(--glare-x, 30%) var(--glare-y, 30%), rgba(0, 240, 255, 0.15) 0%, rgba(167, 139, 250, 0.08) 40%, transparent 70%);
+      mix-blend-mode: screen;
+      transition: background 0.05s ease-out;
+    }
+
+    /* 3D 镜筒金属刻度圈 */
+    .scope-metallic-bezel-ring {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      border: 2px dashed rgba(0, 240, 255, 0.25);
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .scope-metallic-bezel-ring::after {
+      content: "";
+      position: absolute;
+      top: -8px; left: -8px; right: -8px; bottom: -8px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 184, 0, 0.25);
+    }
+
+    /* 准星十字线与网格刻度 */
+    .scope-crosshair {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .crosshair-h {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      width: 100%;
+      height: 1px;
+      background: rgba(0, 240, 255, 0.25);
+    }
+    .crosshair-v {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      height: 100%;
+      width: 1px;
+      background: rgba(0, 240, 255, 0.25);
+    }
+
+    /* HUD 抬头参数 */
+    .scope-hud-top {
+      position: absolute;
+      top: 16px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+      font-size: 0.84rem;
+      font-family: monospace;
+      color: var(--cyan-neon);
+      text-shadow: 0 0 8px rgba(0, 240, 255, 0.6);
+      pointer-events: none;
+    }
+
+    .scope-stage-badge {
+      background: rgba(0, 240, 255, 0.18);
+      border: 1.5px solid var(--cyan-neon);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: #FFF;
+      box-shadow: 0 0 14px rgba(0, 240, 255, 0.3);
+    }
+
+    /* 显微镜 Canvas 绘制层 */
+    #microCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      transform-style: preserve-3d;
+      transition: transform 0.1s ease-out;
+    }
+
+    /* 右侧 3D 对焦滚轮 (Focus Wheel) */
+    .focus-wheel-panel {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      background: rgba(7, 12, 28, 0.85);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      padding: 10px 6px;
+      border-radius: 12px;
+      backdrop-filter: blur(8px);
+    }
+
+    .focus-knob-cylinder {
+      width: 26px;
+      height: 90px;
+      background: linear-gradient(to right, #1E293B, #475569 40%, #94A3B8 50%, #334155 70%, #0F172A);
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      cursor: ns-resize;
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.8), 0 0 8px rgba(0, 240, 255, 0.25);
+    }
+
+    .focus-knob-cylinder::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: repeating-linear-gradient(to bottom, transparent, transparent 5px, rgba(0, 0, 0, 0.6) 5px, rgba(0, 0, 0, 0.6) 8px);
+    }
+
+    /* 显微镜下方超清晰电影胶卷缩略图序列 (Filmstrip) */
+    .micro-filmstrip-row {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding: 10px 2px;
+      margin-top: 4px;
+    }
+
+    .filmstrip-card {
+      flex: 0 0 135px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1.5px solid rgba(255, 255, 255, 0.12);
+      background: rgba(10, 18, 38, 0.7);
+      cursor: pointer;
+      transition: all 0.25s ease;
+      position: relative;
+    }
+
+    .filmstrip-card img {
+      width: 100%;
+      height: 72px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .filmstrip-card .filmstrip-label {
+      font-size: 0.7rem;
+      padding: 4px 6px;
+      background: #080D1F;
+      color: var(--text-muted);
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-weight: 600;
+    }
+
+    .filmstrip-card:hover {
+      border-color: var(--cyan-neon);
+      transform: translateY(-3px);
+      box-shadow: 0 6px 16px rgba(0, 240, 255, 0.25);
+    }
+
+    .filmstrip-card.active {
+      border-color: var(--gold-neon);
+      box-shadow: 0 0 14px rgba(255, 184, 0, 0.45);
+    }
+
+    .filmstrip-card.active .filmstrip-label {
+      color: var(--gold-neon);
+      background: rgba(255, 184, 0, 0.12);
+    }
+
+    /* 显微镜右侧控制台 */
+    .scope-controls-card {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .scope-stat-box {
+      background: rgba(10, 17, 36, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+
+    .scope-stat-box .stat-label {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .scope-stat-box .stat-val {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--gold-neon);
+      margin-top: 4px;
+      font-family: monospace;
+    }
+
+    .stat-val.val-cyan { color: var(--cyan-neon); }
+    .stat-val.val-green { color: var(--green-neon); }
+
+    .slider-group {
+      margin-top: 6px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.82rem;
+      margin-bottom: 6px;
+      color: var(--text-muted);
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--cyan-neon);
+      box-shadow: 0 0 10px var(--cyan-neon);
+      cursor: pointer;
+      transition: transform 0.1s ease;
+    }
+
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .temp-switch-box {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .temp-chip-btn {
+      flex: 1;
+      padding: 8px 6px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+      transition: all 0.25s ease;
+    }
+
+    .temp-chip-btn.active-frost {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.25), rgba(96, 165, 250, 0.3));
+      border-color: var(--cyan-neon);
+      color: #FFF;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+    }
+
+    .temp-chip-btn.active-warm {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(249, 115, 22, 0.25));
+      border-color: #F87171;
+      color: #FFF;
+      box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+    }
+
+    .micro-narrative-box {
+      background: linear-gradient(135deg, rgba(255, 184, 0, 0.08), rgba(0, 240, 255, 0.06));
+      border: 1px dashed var(--border-gold);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 0.84rem;
+      line-height: 1.5;
+      color: #E2E8F0;
+    }
+
+    .micro-narrative-box strong {
+      color: var(--gold-neon);
+    }
+
+    /* ========================================================
+       ⏱️ 站点二：时间快进器 (Time Warp Station)
+       ======================================================== */
+    .time-warp-grid {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 20px;
+    }
+
+    @media (max-width: 992px) {
+      .time-warp-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .chart-container-box {
+      height: 380px;
+      width: 100%;
+      position: relative;
+    }
+
+    #timeEChart {
+      width: 100%;
+      height: 100%;
+    }
+
+    .time-slider-card {
+      margin-top: 16px;
+      background: rgba(10, 17, 36, 0.7);
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      border-radius: 12px;
+      padding: 16px 20px;
+    }
+
+    .time-slider-track {
+      position: relative;
+      margin: 14px 0 8px;
+    }
+
+    .time-nodes-row {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .time-node-marker {
+      text-align: center;
+      cursor: pointer;
+    }
+    .time-node-marker.active {
+      color: var(--gold-neon);
+      font-weight: 700;
+    }
+
+    .refractometer-view-box {
+      background: #020617;
+      border: 2px solid var(--border-gold);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      box-shadow: inset 0 0 20px rgba(0,0,0,0.8), var(--shadow-gold);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .refractometer-circle {
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      margin: 0 auto 12px;
+      border: 3px solid #334155;
+      background: linear-gradient(to top, rgba(56, 189, 248, 0.6) 0%, rgba(56, 189, 248, 0.6) 38%, #FFFFFF 38%, #FFFFFF 100%);
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.35);
+      position: relative;
+      transition: background 0.3s ease;
+    }
+
+    .refractometer-scale-line {
+      position: absolute;
+      top: 50%;
+      left: 10%;
+      width: 80%;
+      height: 1px;
+      background: rgba(239, 68, 68, 0.8);
+      box-shadow: 0 0 4px #EF4444;
+    }
+
+    .refractometer-num {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: var(--gold-neon);
+      font-family: monospace;
+    }
+
+    /* ========================================================
+       🧪 站点三：变量实验台 (Controlled Variable Lab)
+       ======================================================== */
+    .variable-grid {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 992px) {
+      .variable-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .knob-control-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .knob-box {
+      background: rgba(10, 17, 36, 0.7);
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    .knob-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #FFF;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .temp-preset-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .temp-preset-btn {
+      padding: 12px 6px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: var(--text-main);
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+
+    .temp-preset-btn .temp-desc {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      display: block;
+      margin-top: 3px;
+    }
+
+    .temp-preset-btn:hover {
+      border-color: var(--cyan-neon);
+      background: rgba(0, 240, 255, 0.1);
+    }
+
+    .temp-preset-btn.active {
+      border-color: var(--cyan-neon);
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.25), rgba(16, 185, 129, 0.25));
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.35);
+      color: #FFF;
+    }
+
+    #variableEChart {
+      width: 100%;
+      height: 380px;
+    }
+
+    .conclusion-banner {
+      margin-top: 18px;
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(0, 240, 255, 0.08));
+      border: 1px solid var(--green-neon);
+      border-radius: 12px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .conclusion-banner .icon {
+      font-size: 1.5rem;
+      line-height: 1;
+    }
+
+    .conclusion-banner .text h4 {
+      font-size: 0.95rem;
+      color: var(--green-neon);
+      margin-bottom: 4px;
+    }
+
+    .conclusion-banner .text p {
+      font-size: 0.84rem;
+      color: #CBD5E1;
+      line-height: 1.5;
+    }
+
+    /* ========================================================
+       🥬 站点四：蔬菜点名处 (Vegetable Check Arena)
+       ======================================================== */
+    .veg-cards-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .veg-item-card {
+      background: rgba(10, 17, 36, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      padding: 16px 12px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      position: relative;
+    }
+
+    .veg-item-card:hover {
+      border-color: var(--cyan-neon);
+      transform: translateY(-4px);
+      box-shadow: 0 8px 20px rgba(0, 240, 255, 0.2);
+    }
+
+    .veg-item-card.selected {
+      border-color: var(--gold-neon);
+      background: linear-gradient(135deg, rgba(255, 184, 0, 0.18), rgba(0, 240, 255, 0.12));
+      box-shadow: var(--shadow-gold);
+    }
+
+    .veg-emoji-icon {
+      font-size: 2.8rem;
+      line-height: 1;
+      margin-bottom: 8px;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
+    }
+
+    .veg-name {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #FFF;
+    }
+
+    .veg-tag {
+      display: inline-block;
+      font-size: 0.72rem;
+      color: var(--cyan-neon);
+      margin-top: 4px;
+      padding: 2px 6px;
+      background: rgba(0, 240, 255, 0.1);
+      border-radius: 4px;
+    }
+
+    .hypothesis-arena-box {
+      background: rgba(7, 12, 28, 0.85);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      border-radius: 16px;
+      padding: 24px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 768px) {
+      .hypothesis-arena-box {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .prediction-options-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .pred-opt-btn {
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-main);
+      font-size: 0.88rem;
+      font-weight: 500;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pred-opt-btn:hover {
+      border-color: var(--cyan-neon);
+      background: rgba(0, 240, 255, 0.08);
+    }
+
+    .pred-opt-btn.active {
+      border-color: var(--gold-neon);
+      background: rgba(255, 184, 0, 0.15);
+      color: #FFF;
+      box-shadow: 0 0 12px rgba(255, 184, 0, 0.25);
+    }
+
+    .verification-result-card {
+      background: rgba(14, 23, 50, 0.9);
+      border: 1px dashed rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 240px;
+    }
+
+    /* ========================================================
+       📋 抽屉模态框：科学数据溯源与学术文献背书
+       ======================================================== */
+    .drawer-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .drawer-overlay.open {
+      display: flex;
+    }
+
+    .drawer-modal {
+      background: #0B1124;
+      border: 1.5px solid var(--border-gold);
+      border-radius: 20px;
+      max-width: 900px;
+      width: 100%;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 28px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), var(--shadow-gold);
+      position: relative;
+    }
+
+    .drawer-close-btn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: #FFF;
+      font-size: 1.2rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+
+    .drawer-close-btn:hover {
+      background: #EF4444;
+    }
+
+    .data-table-custom {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 0.85rem;
+    }
+
+    .data-table-custom th, .data-table-custom td {
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 10px 12px;
+      text-align: center;
+    }
+
+    .data-table-custom th {
+      background: rgba(0, 240, 255, 0.12);
+      color: var(--cyan-neon);
+      font-weight: 600;
+    }
+
+    .data-table-custom tr:nth-child(even) {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .literature-badge-box {
+      background: rgba(255, 184, 0, 0.08);
+      border-left: 3px solid var(--gold-neon);
+      padding: 12px 16px;
+      margin: 14px 0;
+      border-radius: 0 8px 8px 0;
+      font-size: 0.86rem;
+      line-height: 1.6;
+    }
+
+    /* ========================================================
+       🤖 糖糖博士·萝卜AI科学助教 (对话AI当配角)
+       ======================================================== */
+    .ai-bubble-trigger {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(135deg, #1E3A8A, #06B6D4);
+      padding: 10px 18px 10px 12px;
+      border-radius: 40px;
+      border: 1.5px solid var(--cyan-neon);
+      box-shadow: 0 8px 24px rgba(0, 240, 255, 0.4);
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .ai-bubble-trigger:hover {
+      transform: scale(1.05) translateY(-2px);
+      box-shadow: 0 12px 30px rgba(0, 240, 255, 0.6);
+    }
+
+    .ai-avatar-circle {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #FFF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+      animation: floatAvatar 2.5s infinite ease-in-out alternate;
+    }
+
+    @keyframes floatAvatar {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-4px); }
+    }
+
+    .ai-dialog-window {
+      position: fixed;
+      bottom: 84px;
+      right: 24px;
+      width: 360px;
+      max-height: 520px;
+      background: #0C1226;
+      border: 1px solid var(--cyan-neon);
+      border-radius: 18px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0, 240, 255, 0.25);
+      z-index: 99;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      backdrop-filter: blur(16px);
+      animation: popupAI 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+
+    @keyframes popupAI {
+      from { opacity: 0; transform: scale(0.9) translateY(20px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .ai-dialog-header {
+      padding: 12px 16px;
+      background: rgba(0, 240, 255, 0.12);
+      border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #FFF;
+    }
+
+    .ai-messages-box {
+      flex: 1;
+      padding: 14px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: 300px;
+    }
+
+    .ai-msg-bubble {
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 0.84rem;
+      line-height: 1.5;
+    }
+
+    .ai-msg-assistant {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      color: #E2E8F0;
+      border-bottom-left-radius: 2px;
+      align-self: flex-start;
+    }
+
+    .ai-msg-user {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.25), rgba(96, 165, 250, 0.3));
+      border: 1px solid var(--cyan-neon);
+      color: #FFF;
+      border-bottom-right-radius: 2px;
+      align-self: flex-end;
+    }
+
+    .ai-chips-suggestions {
+      padding: 8px 12px;
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .ai-chip {
+      white-space: nowrap;
+      padding: 4px 10px;
+      border-radius: 12px;
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      font-size: 0.72rem;
+      color: var(--cyan-neon);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .ai-chip:hover {
+      background: var(--cyan-neon);
+      color: #070B19;
+    }
+
+    .ai-input-bar {
+      display: flex;
+      padding: 10px 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(0, 0, 0, 0.25);
+    }
+
+    .ai-input-bar input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #FFF;
+      font-size: 0.85rem;
+    }
+
+    .ai-input-bar button {
+      background: var(--cyan-neon);
+      border: none;
+      border-radius: 6px;
+      padding: 4px 12px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #070B19;
+      cursor: pointer;
+    }
+  
+    /* ========================================================
+       🚨 实验室报警与撒花特效、语音播报 HUD 样式
+       ======================================================== */
+    .alarm-flash-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 9998;
+      background: radial-gradient(circle, rgba(239, 68, 68, 0.4) 0%, rgba(220, 38, 38, 0.75) 100%);
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+
+    .alarm-flash-screen.active {
+      opacity: 1;
+      animation: alarmScreenPulse 0.45s ease-in-out infinite alternate;
+    }
+
+    @keyframes alarmScreenPulse {
+      0% { opacity: 0.25; filter: hue-rotate(0deg); }
+      100% { opacity: 0.85; filter: hue-rotate(-15deg); }
+    }
+
+    .shake-alarm {
+      animation: shakeCard 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+      border-color: #EF4444 !important;
+      box-shadow: 0 0 40px rgba(239, 68, 68, 0.65) !important;
+    }
+
+    @keyframes shakeCard {
+      10%, 90% { transform: translate3d(-3px, 0, 0); }
+      20%, 80% { transform: translate3d(5px, 0, 0); }
+      30%, 50%, 70% { transform: translate3d(-7px, 0, 0); }
+      40%, 60% { transform: translate3d(7px, 0, 0); }
+    }
+
+    .glow-success {
+      animation: glowSuccessPulse 1.2s ease-in-out 2;
+      border-color: #10B981 !important;
+      box-shadow: 0 0 45px rgba(16, 185, 129, 0.75) !important;
+    }
+
+    @keyframes glowSuccessPulse {
+      0%, 100% { box-shadow: 0 0 20px rgba(16, 185, 129, 0.4); }
+      50% { box-shadow: 0 0 55px rgba(16, 185, 129, 0.9), 0 0 25px rgba(255, 215, 0, 0.6); }
+    }
+
+    .veg-item-card.roll-highlight {
+      border-color: #FFB800 !important;
+      background: linear-gradient(135deg, rgba(255, 184, 0, 0.4), rgba(0, 240, 255, 0.35)) !important;
+      transform: scale(1.08) translateY(-6px) !important;
+      box-shadow: 0 0 30px rgba(255, 184, 0, 0.9) !important;
+      z-index: 10;
+    }
+
+    .voice-equalizer-bar-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      height: 18px;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+
+    .voice-equalizer-bar-group .v-bar {
+      width: 3.5px;
+      background: var(--cyan-neon);
+      border-radius: 2px;
+      animation: vBarJump 0.8s ease-in-out infinite alternate;
+      height: 4px;
+    }
+
+    .voice-equalizer-bar-group.speaking .v-bar:nth-child(1) { animation-duration: 0.45s; }
+    .voice-equalizer-bar-group.speaking .v-bar:nth-child(2) { animation-duration: 0.3s; }
+    .voice-equalizer-bar-group.speaking .v-bar:nth-child(3) { animation-duration: 0.55s; }
+    .voice-equalizer-bar-group.speaking .v-bar:nth-child(4) { animation-duration: 0.38s; }
+
+    @keyframes vBarJump {
+      0% { height: 4px; }
+      100% { height: 18px; background: #FFB800; }
+    }
+
+    .veg-score-dashboard {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      background: rgba(10, 18, 42, 0.85);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      border-radius: 14px;
+      padding: 12px 20px;
+      margin-bottom: 20px;
+    }
+
+    .veg-stat-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.88rem;
+    }
+
+    .veg-stat-pill strong {
+      color: var(--gold-neon);
+      font-size: 1.1rem;
+    }
+
+    .btn-roll-dice {
+      background: linear-gradient(135deg, #FFB800, #F59E0B);
+      color: #070B19;
+      font-weight: 800;
+      border: none;
+      padding: 9px 18px;
+      border-radius: 12px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.88rem;
+      box-shadow: 0 4px 18px rgba(255, 184, 0, 0.4);
+      transition: all 0.2s ease;
+    }
+
+    .btn-roll-dice:hover {
+      transform: translateY(-2px) scale(1.03);
+      box-shadow: 0 6px 24px rgba(255, 184, 0, 0.6);
+    }
+
+    .btn-voice-ctrl {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #E2E8F0;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-voice-ctrl:hover {
+      background: rgba(0, 240, 255, 0.2);
+      border-color: var(--cyan-neon);
+      color: #FFF;
+    }
+
+    .btn-voice-ctrl.active-play {
+      background: var(--gold-neon);
+      color: #070B19;
+      font-weight: 700;
+      border-color: var(--gold-neon);
+    }
+
+    .freeze-chamber-box {
+      background: radial-gradient(circle at 50% 50%, rgba(14, 30, 60, 0.85) 0%, rgba(6, 12, 28, 0.95) 100%);
+      border: 2px solid rgba(0, 240, 255, 0.3);
+      border-radius: 16px;
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .pred-opt-card-btn {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1.5px solid rgba(255, 255, 255, 0.15);
+      border-radius: 14px;
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.25s ease;
+      color: #F8FAFC;
+      margin-bottom: 12px;
+    }
+
+    .pred-opt-card-btn:hover {
+      border-color: var(--cyan-neon);
+      background: rgba(0, 240, 255, 0.1);
+      transform: translateX(4px);
+    }
+
+    .pred-opt-card-btn.active {
+      border-color: var(--gold-neon);
+      background: linear-gradient(135deg, rgba(255, 184, 0, 0.2), rgba(0, 240, 255, 0.1));
+      box-shadow: 0 0 20px rgba(255, 184, 0, 0.35);
+    }
+
+    .pred-opt-card-btn .opt-badge {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      flex-shrink: 0;
+    }
+
+    .pred-opt-card-btn.active .opt-badge {
+      background: var(--gold-neon);
+      color: #070B19;
+    }
+
+  </style>
+</head>
+<body>
+  <!-- 全屏绚丽撒花特效 Canvas -->
+  <canvas id="confettiCanvas" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 9999;"></canvas>
+  
+  <!-- 全屏实验室警报闪烁 Overlay -->
+  <div id="alarmFlashOverlay" class="alarm-flash-screen"></div>
+
+  <!-- 科技感网格与发光球体 -->
+  <div class="holo-grid"></div>
+  <div class="holo-glow-orb orb-1"></div>
+  <div class="holo-glow-orb orb-2"></div>
+
+  <!-- 顶部主控制导航栏 -->
+  <header class="top-header">
+    <div class="brand-wrap">
+      <div class="brand-logo-hex">
+        <span style="font-size: 1.5rem;">🔬</span>
+      </div>
+      <div class="brand-titles">
+        <h1>
+          甜味密码
+          <span class="badge-tag">AI 虚拟科学实验室</span>
+        </h1>
+        <p>小学科学跨学科探究 · 分子级催化仿真与微观显微实测平台</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <a href="/radish2" class="btn-action" style="text-decoration: none; border-color: var(--cyan-neon); color: var(--cyan-neon); display: inline-flex; align-items: center; gap: 6px;">
+        <span>🔬</span> 体验 3D 智能版
+      </a>
+      <button class="btn-action btn-evidence" id="btnOpenEvidence">
+        <span>📋</span> 科学数据溯源与文献背书
+      </button>
+      <button class="btn-action" id="btnToggleSound">
+        <span id="soundIcon">🔊</span> <span id="soundText">音效开</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- 四大站点 TAB 导航条 -->
+  <nav class="station-nav-bar">
+    <button class="station-tab-btn active" data-station="scope">
+      <span class="station-num">1</span>
+      <span>🔬 虚拟显微镜（微观分子工坊）</span>
+    </button>
+    <button class="station-tab-btn" data-station="timewarp">
+      <span class="station-num">2</span>
+      <span>⏱️ 时间快进器（节气与糖度爬升）</span>
+    </button>
+    <button class="station-tab-btn" data-station="variable">
+      <span class="station-num">3</span>
+      <span>🧪 变量实验台（控制变量探究）</span>
+    </button>
+    <button class="station-tab-btn" data-station="vegetable">
+      <span class="station-num">4</span>
+      <span>🥬 蔬菜点名处（假设与实证检验）</span>
+    </button>
+  </nav>
+
+  <!-- 主操作舞台 -->
+  <main class="main-stage">
+
+    <!-- ==========================================
+         站点 1：3D 全息虚拟显微镜 (3D Microscopic Molecular Lab)
+         ========================================== -->
+    <section class="station-content-panel active" id="panel-scope">
+      <div class="lab-card">
+        
+        <!-- 🌟 01_lab_entry: 未来 AI 生物实验室大厅入口横幅 -->
+        <div class="lab-entry-hero-banner">
+          <img src="./images/01_lab_entry.jpg" alt="未来感 AI 生物实验室" class="lab-entry-hero-bg">
+          <div class="lab-entry-overlay"></div>
+          <div class="lab-entry-content">
+            <h3><span>🧬</span> 欢迎来到 AI 虚拟微观生物实验室</h3>
+            <p>
+              现实中的显微镜只能看到细胞轮廓，看不见淀粉长链和酶分子的剪切过程。
+              在我们的 AI 实验室里，您可以亲手操作 3D 显微镜，从一根鲜萝卜逐层深入穿透到分子反应现场！
+            </p>
+            <button class="btn-zoom-hero btn-zoom-in-primary" style="padding: 9px 20px; font-size: 0.88rem;" onclick="jumpToScopeStage(1); document.getElementById('scopeViewport').scrollIntoView({behavior:'smooth'});">
+              <span>🚀 开启显微镜连续深入放大之旅 ➔</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="card-title-bar">
+          <h2>
+            <span>🔬 3D 全息虚拟显微镜：由宏观萝卜到纳米酶剪糖</span>
+          </h2>
+          <span class="subtitle">“现实中没有这种显微镜，这就是 AI 实验室的意义！” —— 点击按钮或拖动滚轮，体验震撼的 3D 镜头连续推进</span>
+        </div>
+
+        <div class="scope-outer-shell">
+          <!-- 7 级微观阶梯导航栏 -->
+          <div class="scope-step-breadcrumbs">
+            <div class="breadcrumb-step-item active" data-stage="1" onclick="jumpToScopeStage(1)">
+              <span class="step-badge">1</span>
+              <span>🥕 1. 完整白萝卜</span>
+            </div>
+            <span class="breadcrumb-arrow">➔</span>
+            <div class="breadcrumb-step-item" data-stage="2" onclick="jumpToScopeStage(2)">
+              <span class="step-badge">2</span>
+              <span>🌐 2. 薄壁储藏组织</span>
+            </div>
+            <span class="breadcrumb-arrow">➔</span>
+            <div class="breadcrumb-step-item" data-stage="3" onclick="jumpToScopeStage(3)">
+              <span class="step-badge">3</span>
+              <span>🛡️ 3. 坚韧细胞壁</span>
+            </div>
+            <span class="breadcrumb-arrow">➔</span>
+            <div class="breadcrumb-step-item" data-stage="4" onclick="jumpToScopeStage(4)">
+              <span class="step-badge">4</span>
+              <span>💧 4. 晶莹大液泡</span>
+            </div>
+            <span class="breadcrumb-arrow">➔</span>
+            <div class="breadcrumb-step-item" data-stage="5" onclick="jumpToScopeStage(5)">
+              <span class="step-badge">5</span>
+              <span>🥔 5. 淀粉多糖链</span>
+            </div>
+            <span class="breadcrumb-arrow">➔</span>
+            <div class="breadcrumb-step-item" data-stage="6" onclick="jumpToScopeStage(6)">
+              <span class="step-badge">6</span>
+              <span>✂️ 6. 酶剪淀粉</span>
+            </div>
+            <span class="breadcrumb-arrow">➔</span>
+            <div class="breadcrumb-step-item" data-stage="7" onclick="jumpToScopeStage(7)">
+              <span class="step-badge">7</span>
+              <span>🍬 7. 转化糖颗粒</span>
+            </div>
+          </div>
+
+          <!-- 核心操作按键栏 -->
+          <div class="scope-action-bar-hero">
+            <div class="zoom-btn-group-main">
+              <button class="btn-zoom-hero btn-zoom-in-primary" id="btnZoomInAction" onclick="zoomInScope()">
+                <span>🔎 一级级深入放大 ➔ (Zoom In)</span>
+              </button>
+              <button class="btn-zoom-hero btn-zoom-out-secondary" id="btnZoomOutAction" onclick="zoomOutScope()">
+                <span>⏮ 逐步缩回宏观 (Zoom Out)</span>
+              </button>
+            </div>
+            <button class="btn-auto-tour" id="btnAutoScopeTour" onclick="toggleAutoScopeTour()">
+              <span id="tourIcon">🚀</span> 3D 自动连续穿梭巡航
+            </button>
+          </div>
+
+          <!-- 3D 显微镜主视窗与控制侧栏 -->
+          <div class="scope-grid-layout">
+            <!-- 显微镜主视窗 (3D Barrel Chassis) -->
+            <div class="scope-3d-barrel-chassis" id="scopeViewport">
+              <!-- 光学防眩光多层镀膜 -->
+              <div class="scope-optical-glare" id="scopeOpticalGlare"></div>
+
+              <!-- 准星与标尺刻度 -->
+              <div class="scope-crosshair">
+                <div class="crosshair-h"></div>
+                <div class="crosshair-v"></div>
+                <div class="scope-metallic-bezel-ring"></div>
+              </div>
+
+              <!-- HUD 顶部实时状态 -->
+              <div class="scope-hud-top">
+                <div>
+                  <span>放大倍率: </span>
+                  <span id="hudZoomText" style="font-weight: 800; color: #FFF; font-size: 1rem;">1x (宏观视野)</span>
+                </div>
+                <div class="scope-stage-badge" id="hudLevelBadge">阶段 1/7：完整白萝卜</div>
+                <div>
+                  <span>微观温度: </span>
+                  <span id="hudTempText" style="color: var(--cyan-neon);">2.0℃ (霜降低温)</span>
+                </div>
+              </div>
+
+              <!-- 核心 Canvas 3D 渲染画布 -->
+              <canvas id="microCanvas"></canvas>
+
+              <!-- 右侧 3D 对焦滚轮 -->
+              <div class="focus-wheel-panel" title="上下拖动或滚动微调焦距">
+                <span style="font-size: 0.68rem; color: var(--cyan-neon); font-weight: 700;">对焦</span>
+                <div class="focus-knob-cylinder" id="focusWheelKnob"></div>
+                <span style="font-size: 0.65rem; color: var(--text-muted);" id="focusValText">100%</span>
+              </div>
+            </div>
+
+            <!-- 显微镜右侧智能控制台 -->
+            <div class="scope-controls-card">
+              <!-- 实时分子监控表 -->
+              <div class="scope-stat-box">
+                <div class="stat-label">
+                  <span>🍬</span> 游离糖粒释放计数器 (麦芽糖/葡萄糖)
+                </div>
+                <div class="stat-val" id="scopeSugarCount">0 粒</div>
+                <div class="stat-label" style="margin-top: 8px;">
+                  <span>🔗</span> 淀粉长链剩余率 (Amylose Residue)
+                </div>
+                <div class="stat-val val-cyan" id="scopeStarchLeft">100.0%</div>
+              </div>
+
+              <!-- 模拟冰点下降渗透压计算器 -->
+              <div class="scope-stat-box">
+                <div class="stat-label">
+                  <span>❄️</span> 细胞液冰点下降计（抗冻保护力）
+                </div>
+                <div class="stat-val val-green" id="scopeFreezingPoint">0.0℃</div>
+                <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 4px;">
+                  随糖分子浓度提高 ➔ 细胞液渗透压上升 ➔ 冰点降至 -2.8℃，阻止胞内结冰！
+                </div>
+              </div>
+
+              <!-- 环境温度模拟切换 (在第6/7级高亮联动) -->
+              <div class="scope-stat-box">
+                <div class="stat-label">
+                  <span>🌡️</span> 切换外部环境温度条件
+                </div>
+                <div class="temp-switch-box">
+                  <button class="temp-chip-btn active-frost" id="btnScopeFrost">
+                    ❄️ 霜降低温 (2℃)<br><span style="font-size: 0.68rem;">酶催化全速剪切</span>
+                  </button>
+                  <button class="temp-chip-btn" id="btnScopeWarm">
+                    ☀️ 常温室温 (25℃)<br><span style="font-size: 0.68rem;">酶怠工休眠</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- 连续缩放滑块 -->
+              <div class="scope-stat-box">
+                <div class="slider-header">
+                  <span>连续缩放滑块 (1x ~ 50000x)</span>
+                  <span id="sliderZoomVal" style="color: var(--cyan-neon);">1x</span>
+                </div>
+                <input type="range" id="scopeZoomSlider" min="1" max="50000" step="10" value="1">
+              </div>
+
+              <!-- 科学微观解说 -->
+              <div class="micro-narrative-box">
+                <strong>🔬 显微镜当前观察指南：</strong><br>
+                <span id="scopeNarrativeText">
+                  当前处于【1x 宏观视角】：这是新鲜采摘的白萝卜肉质根。请点击上方的【🔎 一级级深入放大 ➔】按钮，镜头将带您层层穿越，从组织、细胞壁、大液泡一直探索到酶剪糖的分子现场！
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 显微镜底部超清胶卷缩略图序列 (Filmstrip) -->
+          <div class="micro-filmstrip-row">
+            <div class="filmstrip-card active" data-film="1" onclick="jumpToScopeStage(1)">
+              <img src="./images/02_radish_macro.jpg" alt="1. 白萝卜整体">
+              <div class="filmstrip-label">1. 🥕 白萝卜整体</div>
+            </div>
+            <div class="filmstrip-card" data-film="2" onclick="jumpToScopeStage(2)">
+              <img src="./images/03_radish_tissue.jpg" alt="2. 储藏薄壁组织">
+              <div class="filmstrip-label">2. 🌐 储藏组织</div>
+            </div>
+            <div class="filmstrip-card" data-film="3" onclick="jumpToScopeStage(3)">
+              <img src="./images/04_plant_cell.jpg" alt="3. 坚韧细胞壁">
+              <div class="filmstrip-label">3. 🛡️ 坚韧细胞壁</div>
+            </div>
+            <div class="filmstrip-card" data-film="4" onclick="jumpToScopeStage(4)">
+              <img src="./images/04_plant_cell.jpg" alt="4. 晶莹大液泡">
+              <div class="filmstrip-label">4. 💧 晶莹大液泡</div>
+            </div>
+            <div class="filmstrip-card" data-film="5" onclick="jumpToScopeStage(5)">
+              <img src="./images/05_cell_vacuole_starch.jpg" alt="5. 淀粉分子长链">
+              <div class="filmstrip-label">5. 🥔 淀粉分子链</div>
+            </div>
+            <div class="filmstrip-card" data-film="6" onclick="jumpToScopeStage(6)">
+              <img src="./images/06_enzyme_scissors.jpg" alt="6. 酶剪断淀粉">
+              <div class="filmstrip-label">6. ✂️ 酶剪淀粉</div>
+            </div>
+            <div class="filmstrip-card" data-film="7" onclick="jumpToScopeStage(7)">
+              <img src="./images/07_sugar_result.jpg" alt="7. 生成糖颗粒">
+              <div class="filmstrip-label">7. 🍬 转化糖颗粒</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         站点 2：时间快进器 (Time Warp Station)
+         ========================================== -->
+    <section class="station-content-panel" id="panel-timewarp">
+      <div class="lab-card">
+        <div class="card-title-bar">
+          <h2>
+            <span>⏱️ 时间快进器：节气流转与糖分实时爬升曲线</span>
+          </h2>
+          <span class="subtitle">拖动日期滑块，观察 10月1日 到 11月10日 气温骤降与甜度计 Brix 攀升的科学关联</span>
+        </div>
+
+        <div class="time-warp-grid">
+          <!-- 左侧：双轴动态曲线图表 -->
+          <div>
+            <div class="chart-container-box">
+              <div id="timeEChart"></div>
+            </div>
+
+            <!-- 日期滑动控制器 -->
+            <div class="time-slider-card">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="font-size: 0.95rem; font-weight: 700; color: #FFF;">
+                  当前快进时间点：<span id="currentDateDisplay" style="color: var(--gold-neon);">10月24日 (霜降次日)</span>
+                </div>
+                <button class="btn-action" id="btnAutoPlayTime" style="padding: 6px 14px; font-size: 0.8rem;">
+                  <span id="playIcon">▶</span> 自动快进演变
+                </button>
+              </div>
+
+              <div class="time-slider-track">
+                <input type="range" id="timeSlider" min="0" max="40" value="23" step="1">
+              </div>
+
+              <div class="time-nodes-row">
+                <div class="time-node-marker" onclick="setTimeDay(0)">10月1日<br><span style="font-size:0.68rem">初秋采收</span></div>
+                <div class="time-node-marker" onclick="setTimeDay(10)">10月11日<br><span style="font-size:0.68rem">秋意渐浓</span></div>
+                <div class="time-node-marker active" onclick="setTimeDay(23)">10月24日<br><span style="font-size:0.68rem">霜降初霜</span></div>
+                <div class="time-node-marker" onclick="setTimeDay(32)">11月2日<br><span style="font-size:0.68rem">深秋降温</span></div>
+                <div class="time-node-marker" onclick="setTimeDay(40)">11月10日<br><span style="font-size:0.68rem">立冬峰值</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右侧：08_frost_weather 农田透视与光学糖度测量仪 -->
+          <div style="display: flex; flex-direction: column; gap: 14px;">
+            
+            <!-- 🌟 08_frost_weather: 霜降清晨农田实景透视插画卡 -->
+            <div style="background: rgba(10, 17, 36, 0.7); border: 1.5px solid var(--border-gold); border-radius: 14px; overflow: hidden;">
+              <img src="./images/08_frost_weather.jpg" alt="霜降清晨农田与地下萝卜防冻能量流透视" style="width: 100%; height: 165px; object-fit: cover; display: block;">
+              <div style="padding: 10px 14px; font-size: 0.8rem; color: #CBD5E1; line-height: 1.5;">
+                <strong style="color: var(--gold-neon);">🌾 霜降物候实景透视：</strong>
+                清晨白霜覆叶，白萝卜在泥土中感应到地温骤降，迅速将储存淀粉水解为大量糖分，形成温暖防冻保护流！
+              </div>
+            </div>
+
+            <!-- 甜度测量仪模拟视窗 -->
+            <div class="refractometer-view-box">
+              <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 8px;">
+                光学折光糖度计（手持甜度仪实测视窗）
+              </div>
+              <div class="refractometer-circle" id="refractometerCircle">
+                <div class="refractometer-scale-line"></div>
+              </div>
+              <div class="refractometer-num" id="refractometerVal">5.8 °Bx</div>
+              <div style="font-size: 0.76rem; color: var(--text-muted); margin-top: 4px;">
+                单位：白利糖度 (Brix %) · 纯汁实测
+              </div>
+            </div>
+
+            <!-- 当前气象与萝卜风味卡 -->
+            <div class="scope-stat-box">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-size: 0.82rem; color: var(--text-muted);">当日环境气温</span>
+                <span id="currentDayTemp" style="font-weight: 700; color: var(--cyan-neon);">3.2 ℃</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-size: 0.82rem; color: var(--text-muted);">萝卜口感评价</span>
+                <span id="currentDayTaste" style="font-weight: 700; color: var(--gold-neon);">清甜爽口，微辣已褪</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="font-size: 0.82rem; color: var(--text-muted);">植物抗寒状态</span>
+                <span id="currentDayDef" style="font-weight: 700; color: var(--green-neon);">全面启动防冻转化</span>
+              </div>
+            </div>
+
+            <div class="micro-narrative-box">
+              <strong>💡 科学因果链解析：</strong><br>
+              <span id="timeWarpNarrative">
+                进入 10月23日 霜降之后，夜间地表气温骤降至 3℃ 左右。萝卜根系感知到冻害信号，激活淀粉水解途径。糖度计读数从最初的 3.8°Bx 飙升突破 5.8°Bx，原有的辛辣感被丰盈的甘甜彻底取代！
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         站点 3：变量实验台 (Controlled Variable Lab)
+         ========================================== -->
+    <section class="station-content-panel" id="panel-variable">
+      <div class="lab-card">
+        <div class="card-title-bar">
+          <h2>
+            <span>🧪 变量实验台：控制变量科学探究</span>
+          </h2>
+          <span class="subtitle">“只改一个旋钮，结果即时变化” —— 遵循小学四年级科学探究的严谨法则</span>
+        </div>
+
+        <div class="variable-grid">
+          <!-- 左侧双旋钮控制台 -->
+          <div class="knob-control-panel">
+            <!-- 旋钮 1：储藏温度 -->
+            <div class="knob-box">
+              <div class="knob-title">
+                <span>旋钮 ①：储藏环境温度</span>
+                <span id="currentSelectedTemp" style="color: var(--cyan-neon); font-family: monospace;">0 ℃</span>
+              </div>
+              <div class="temp-preset-grid">
+                <button class="temp-preset-btn active" data-temp="0">
+                  0 ℃
+                  <span class="temp-desc">冰温冬储</span>
+                </button>
+                <button class="temp-preset-btn" data-temp="5">
+                  5 ℃
+                  <span class="temp-desc">冷藏库</span>
+                </button>
+                <button class="temp-preset-btn" data-temp="10">
+                  10 ℃
+                  <span class="temp-desc">阴凉地窖</span>
+                </button>
+                <button class="temp-preset-btn" data-temp="25">
+                  25 ℃
+                  <span class="temp-desc">常温室内</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 旋钮 2：存放天数 -->
+            <div class="knob-box">
+              <div class="knob-title">
+                <span>旋钮 ②：存放与转化天数</span>
+                <span id="currentSelectedDays" style="color: var(--gold-neon); font-family: monospace;">20 天</span>
+              </div>
+              <div class="slider-group">
+                <input type="range" id="varDaysSlider" min="1" max="30" value="20" step="1">
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 6px;">
+                <span>第 1 天 (刚采收)</span>
+                <span>第 15 天 (半月)</span>
+                <span>第 30 天 (满月)</span>
+              </div>
+            </div>
+
+            <!-- 即时实验输出指标表 -->
+            <div class="scope-stat-box">
+              <div class="stat-label">预测终点糖度 (°Brix)</div>
+              <div class="stat-val" id="varResultBrix">7.6 °Bx</div>
+              <div class="stat-label" style="margin-top: 10px;">淀粉水解转化速率</div>
+              <div class="stat-val val-cyan" id="varResultRate">0.19 %/天 (极活跃)</div>
+              <div class="stat-label" style="margin-top: 10px;">细胞水分饱满度与糠心风险</div>
+              <div class="stat-val val-green" id="varResultQuality">95% (无糠心，鲜嫩多汁)</div>
+            </div>
+          </div>
+
+          <!-- 右侧：对比实验图表与结论生成器 -->
+          <div>
+            <div class="chart-container-box">
+              <div id="variableEChart"></div>
+            </div>
+
+            <div class="conclusion-banner">
+              <div class="icon">🔬</div>
+              <div class="text">
+                <h4 id="varConclusionTitle">控制变量探究结论：0℃ 冰温能够最大化激发抗冻糖积累</h4>
+                <p id="varConclusionDesc">
+                  通过对比实验发现：在 0℃ 条件下存放 20 天，萝卜为了防止自身被冻坏，细胞内的 β-淀粉酶维持持续高效的水解，将贮藏多糖分解为可溶性糖，糖度高达 7.6°Bx；而在 25℃ 常温室内，由于没有低温威胁，反而发生剧烈呼吸消耗，到第 20 天糖度降至 2.8°Bx 并出现明显的纤维化糠心！
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         站点 4：蔬菜点名处 (Vegetable Check Arena)
+         ========================================== -->
+        <!-- ==========================================
+         站点 4：蔬菜点名大挑战 (Vegetable Roll-call & AI Prediction Arena)
+         【支持完整 资深老科学家/男博士 AI 语音配音播报 · 答对撒花 · 答错报警 · 随机点名】
+         ========================================== -->
+    <section class="station-content-panel" id="panel-vegetable">
+      <div class="lab-card" id="vegMainContainer">
+        <!-- 标题栏 -->
+        <div class="card-title-bar">
+          <h2>
+            <span>🥬 蔬菜点名大挑战：科学假说预测与虚拟实证检验</span>
+          </h2>
+          <span class="subtitle">四年级跨学科科学探究：先做出“我的预测”，再放入冷冻舱检验！答对盛大撒花，答错实验室报警！</span>
+        </div>
+
+        <!-- 顶部操作与成就仪表盘 -->
+        <div class="veg-score-dashboard">
+          <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+            <button class="btn-roll-dice" id="btnRollDice">
+              <span style="font-size: 1.2rem;">🎲</span>
+              <span>随机蔬菜大点名！</span>
+            </button>
+            <div class="veg-stat-pill">
+              <span>🎯 探究进度:</span>
+              <strong id="vegProgressCount">1 / 8</strong>
+            </div>
+            <div class="veg-stat-pill">
+              <span>🏆 连续猜对:</span>
+              <strong id="vegStreakCount">0</strong>
+            </div>
+            <div class="veg-stat-pill">
+              <span>🏅 当前勋章:</span>
+              <span id="vegBadgeTitle" style="color: var(--cyan-neon); font-weight: 700;">🌱 小小观察员</span>
+            </div>
+          </div>
+
+          <!-- 语音播报开关与重播 -->
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <button class="btn-voice-ctrl" id="btnToggleSpeech">
+              <span id="speechIcon">🔊</span>
+              <span id="speechStatusText">语音播报：开启</span>
+            </button>
+            <button class="btn-voice-ctrl" id="btnReplayVoice">
+              <span>🔄</span>
+              <span>重播结论</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 8 大代表性蔬菜点名卡片矩阵 -->
+        <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.88rem; color: var(--text-muted);">
+            👉 点击下方蔬菜卡片，或点击上方【🎲 随机蔬菜大点名】：
+          </span>
+          <span style="font-size: 0.78rem; color: var(--cyan-neon);">
+            涵盖耐寒储藏类 vs 喜温热带类全对比
+          </span>
+        </div>
+
+        <div class="veg-cards-row" id="vegCardsGrid">
+          <!-- 1. 白萝卜 -->
+          <div class="veg-item-card selected" data-veg="radish">
+            <div class="veg-emoji-icon" style="font-size: 2.6rem;">🥕</div>
+            <div class="veg-name" style="font-weight: 800; font-size: 1.05rem;">白萝卜</div>
+            <div class="veg-tag" style="font-size: 0.74rem; color: var(--text-muted); margin-top: 4px;">肉质储藏根 · 十字花科</div>
+            <div class="veg-status-tag" style="font-size: 0.68rem; margin-top: 6px; padding: 2px 6px; border-radius: 4px; background: rgba(0,240,255,0.15); color: var(--cyan-neon);">探究就绪</div>
+          </div>
+          <!-- 2. 西红柿 (特别重点推荐对比) -->
+          <div class="veg-item-card" data-veg="tomato">
+            <div class="veg-emoji-icon" style="font-size: 2.6rem;">🍅</div>
+            <div class="veg-name" style="font-weight: 800; font-size: 1.05rem;">西红柿 (番茄)</div>
+            <div class="veg-tag" style="font-size: 0.74rem; color: var(--text-muted); margin-top: 4px;">喜温茄科 · 原产热带</div>
+            <div class="veg-status-tag" style="font-size: 0.68rem; margin-top: 6px; padding: 2px 6px; border-radius: 4px; background: rgba(239,68,68,0.2); color: #FCA5A5;">热带作物</div>
+          </div>
+          <!-- 3. 大白菜 -->
+          <div class="veg-item-card" data-veg="cabbage">
+            <div class="veg-emoji-icon" style="font-size: 2.6rem;">🥬</div>
+            <div class="veg-name" style="font-weight: 800; font-size: 1.05rem;">大白菜</div>
+            <div class="veg-tag" style="font-size: 0.74rem; color: var(--text-muted); margin-top: 4px;">结球叶菜 · “霜打菜”</div>
+            <div class="veg-status-tag" style="font-size: 0.68rem; margin-top: 6px; padding: 2px 6px; border-radius: 4px; background: rgba(16,185,129,0.2); color: #6EE7B7;">耐寒蔬菜</div>
+          </div>
+          <!-- 4. 黄瓜 -->
+          <div class="veg-item-card" data-veg="cucumber">
+            <div class="veg-emoji-icon" style="font-size: 2.6rem;">🥒</div>
+            <div class="veg-name" style="font-weight: 800; font-size: 1.05rem;">黄瓜</div>
+            <div class="veg-tag" style="font-size: 0.74rem; color: var(--text-muted); margin-top: 4px;">喜温葫芦科 · 极畏寒</div>
+            <div class="veg-status-tag" style="font-size: 0.68rem; margin-top: 6px; padding: 2px 6px; border-radius: 4px; background: rgba(245,158,11,0.2); color: #FCD34D;">喜温果菜</div>
+          </div>
+          <!-- 5. 菠菜 -->
+          <div class="veg-item-card" data-veg="spinach">
+            <div class="veg-emoji-icon" style="font-size: 2.6rem;">🥬</div>
+            <div class="veg-name" style="font-weight: 800; font-size: 1.05rem;">菠菜</div>
+            <div class="veg-tag" style="font-size: 0.74rem; color: var(--text-muted); margin-top: 4px;">极耐寒绿叶菜 · 苋科</div>
+            <div class="veg-status-tag" style="font-size: 0.68rem; margin-top: 6px; padding: 2px 6px; border-radius: 4px; background: rgba(16,185,129,0.2); color: #6EE7B7;">耐寒勇士</div>
+          </div>
+          <!-- 6. 辣椒 -->
+          <div class="veg-item-card" data-veg="chili">
+            <div class="veg-emoji-icon" style="font-size: 2.6rem;">🌶️</div>
+            <div class="veg-name" style="font-weight: 800; font-size: 1.05rem;">辣椒</div>
+            <div class="veg-tag" style="font-size: 0.74rem; color: var(--text-muted); margin-top: 4px;">喜温茄科 · 忌霜冻</div>
+            <div class="veg-status-tag" style="font-size: 0.68rem; margin-top: 6px; padding: 2px 6px; border-radius: 4px; background: rgba(239,68,68,0.2); color: #FCA5A5;">喜温作物</div>
+          </div>
+          <!-- 7. 胡萝卜 -->
+          <div class="veg-item-card" data-veg="carrot">
+            <div class="veg-emoji-icon" style="font-size: 2.6rem;">🥕</div>
+            <div class="veg-name" style="font-weight: 800; font-size: 1.05rem;">胡萝卜</div>
+            <div class="veg-tag" style="font-size: 0.74rem; color: var(--text-muted); margin-top: 4px;">肉质储藏根 · 伞形科</div>
+            <div class="veg-status-tag" style="font-size: 0.68rem; margin-top: 6px; padding: 2px 6px; border-radius: 4px; background: rgba(0,240,255,0.15); color: var(--cyan-neon);">耐寒根菜</div>
+          </div>
+          <!-- 8. 茄子 -->
+          <div class="veg-item-card" data-veg="eggplant">
+            <div class="veg-emoji-icon" style="font-size: 2.6rem;">🍆</div>
+            <div class="veg-name" style="font-weight: 800; font-size: 1.05rem;">茄子</div>
+            <div class="veg-tag" style="font-size: 0.74rem; color: var(--text-muted); margin-top: 4px;">喜热茄科 · 遇霜坏死</div>
+            <div class="veg-status-tag" style="font-size: 0.68rem; margin-top: 6px; padding: 2px 6px; border-radius: 4px; background: rgba(239,68,68,0.2); color: #FCA5A5;">喜热作物</div>
+          </div>
+        </div>
+
+        <!-- 假说预测与虚拟冷冻实验工作台 -->
+        <div class="hypothesis-arena-box" id="hypothesisWorkbench">
+          <!-- 左侧：提出猜想假说 -->
+          <div style="background: rgba(14, 22, 45, 0.75); border: 1.5px solid rgba(0, 240, 255, 0.3); border-radius: 16px; padding: 22px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+              <span style="font-size: 0.78rem; text-transform: uppercase; letter-spacing: 1px; color: var(--cyan-neon); font-weight: 700;">
+                STEP 1 / 学生提出假说
+              </span>
+              <span id="vegFamilyBadge" style="font-size: 0.74rem; padding: 2px 8px; border-radius: 6px; background: rgba(255,184,0,0.2); color: var(--gold-neon);">
+                十字花科 · 肉质储藏根
+              </span>
+            </div>
+
+            <!-- 当前选中蔬菜聚焦展示 -->
+            <div style="display: flex; align-items: center; gap: 14px; background: rgba(0,0,0,0.3); padding: 12px 16px; border-radius: 12px; margin-bottom: 16px;">
+              <span id="spotlightEmoji" style="font-size: 3rem;">🥕</span>
+              <div>
+                <h3 id="spotlightName" style="font-size: 1.35rem; color: #FFF; font-weight: 800;">白萝卜</h3>
+                <p id="spotlightFeature" style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
+                  含有丰富直链与支链淀粉，组织细胞含水量大
+                </p>
+              </div>
+            </div>
+
+            <p style="font-size: 0.88rem; color: #F1F5F9; margin-bottom: 12px; font-weight: 600;">
+              🤔 请同学们预测：如果经历深秋霜降持续 0℃ 低温：
+            </p>
+
+            <!-- 猜想选择大按钮 (A/B 单选) -->
+            <div class="prediction-options-list">
+              <button class="pred-opt-card-btn active" data-pred="sweet" id="btnPredSweet">
+                <div class="opt-badge">🍬</div>
+                <div style="flex: 1;">
+                  <strong style="font-size: 1rem; color: #FFF;">我预测：打了霜会变甜</strong>
+                  <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">
+                    启动植物防冻自卫，淀粉水解为可溶性糖，降低细胞结冰点
+                  </div>
+                </div>
+              </button>
+
+              <button class="pred-opt-card-btn" data-pred="rot" id="btnPredRot">
+                <div class="opt-badge">🥀</div>
+                <div style="flex: 1;">
+                  <strong style="font-size: 1rem; color: #FFF;">我预测：打了霜不会变甜（甚至冻坏）</strong>
+                  <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">
+                    属于喜温植物，无防冻机制，细胞会被尖锐冰晶刺破腐烂
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            <!-- 启动实验按钮 -->
+            <button class="btn-action btn-evidence" id="btnRunVerification" style="margin-top: 18px; width: 100%; justify-content: center; padding: 14px; font-size: 1.05rem; font-weight: 800; background: linear-gradient(135deg, #00F0FF, #0284C7); color: #070B19; border: none; border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 240, 255, 0.4);">
+              <span>❄️</span> 放入冷冻模拟舱·启动实验检验 (陈博导解密)
+            </button>
+          </div>
+
+          <!-- 右侧：虚拟冷霜考验舱与 AI 实证结果 -->
+          <div class="freeze-chamber-box" id="verifyChamberBox">
+            <!-- 待机提示 -->
+            <div id="verifyInitialHint" style="text-align: center; padding: 40px 20px;">
+              <div style="font-size: 4rem; animation: float 3s ease-in-out infinite;">🧊</div>
+              <h3 style="font-size: 1.2rem; color: #FFF; margin: 16px 0 8px 0;">冷冻实验模拟舱就绪</h3>
+              <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.6;">
+                请在左侧选择您的科学预测假说<br>点击【启动实验检验】，资深老科学家陈博导将为您实时学术解密！
+              </p>
+              <div style="margin-top: 20px; display: inline-flex; align-items: center; gap: 8px; font-size: 0.78rem; background: rgba(0,240,255,0.1); border: 1px dashed var(--border-glow); padding: 8px 16px; border-radius: 20px; color: var(--cyan-neon);">
+                <span>✨ 答对触发全屏撒花 · 答错触发警报鸣响</span>
+              </div>
+            </div>
+
+            <!-- 冷冻中过渡动画 (加载中) -->
+            <div id="verifyLoadingState" style="display: none; text-align: center; padding: 50px 20px;">
+              <div style="font-size: 3.5rem; animation: spin 2s linear infinite;">❄️</div>
+              <h3 style="font-size: 1.15rem; color: var(--cyan-neon); margin-top: 14px;">
+                正在模拟 0℃ 霜降冷冻考验...
+              </h3>
+              <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 6px;">
+                高精度折光糖度计正在检测细胞液糖分变化
+              </p>
+              <div style="width: 200px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin: 16px auto 0 auto; overflow: hidden;">
+                <div id="verifyProgressBar" style="width: 30%; height: 100%; background: var(--cyan-neon); transition: width 0.8s ease;"></div>
+              </div>
+            </div>
+
+            <!-- 实验完成结果报告面板 -->
+            <div id="verifyReportContent" style="display: none;">
+              <!-- 顶部结果条 (撒花/报警状态徽标) -->
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span id="verifyStatusIcon" style="font-size: 1.6rem;">🎉</span>
+                  <span style="font-size: 1.1rem; font-weight: 800; color: #FFF;" id="verifyVegTitle">白萝卜 · 实验实证报告</span>
+                </div>
+                <span id="verifyBadgeResult" style="padding: 4px 12px; border-radius: 6px; font-size: 0.82rem; background: var(--green-neon); color: #070B19; font-weight: 800;">
+                  预测准确 🎯 实验结果和你的预测一样！
+                </span>
+              </div>
+
+              <!-- 语音播报正在进行提示条 -->
+              <div style="background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.35); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <div class="voice-equalizer-bar-group speaking" id="voiceVisualizer">
+                    <span class="v-bar"></span>
+                    <span class="v-bar"></span>
+                    <span class="v-bar"></span>
+                    <span class="v-bar"></span>
+                  </div>
+                  <span style="font-size: 0.84rem; color: #E2E8F0;" id="voiceStatusNotice">
+                    🎙️ 资深博导正在为您进行学术解密播报...
+                  </span>
+                </div>
+                <button class="btn-voice-ctrl" id="btnReplayVoiceSmall" style="padding: 4px 10px; font-size: 0.74rem;">
+                  <span>🔄</span> 重播
+                </button>
+              </div>
+
+              <!-- 糖度计测量数据双盲对比 -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                <div style="background: rgba(0,0,0,0.4); padding: 10px 14px; border-radius: 10px; border-left: 3px solid #94A3B8;">
+                  <div style="font-size: 0.74rem; color: var(--text-muted);">霜前常温糖度 (Brix)</div>
+                  <div style="font-size: 1.35rem; font-weight: 800; color: #FFF;" id="verifyBefSugar">3.8 °Bx</div>
+                  <div style="font-size: 0.7rem; color: #94A3B8; margin-top: 2px;">未受低温冷冻刺激</div>
+                </div>
+                <div style="background: rgba(0,0,0,0.4); padding: 10px 14px; border-radius: 10px; border-left: 3px solid var(--gold-neon);" id="verifyAftSugarBox">
+                  <div style="font-size: 0.74rem; color: var(--text-muted);">0℃ 霜冻实测 (Brix)</div>
+                  <div style="font-size: 1.35rem; font-weight: 800; color: var(--gold-neon);" id="verifyAftSugar">7.8 °Bx (+105%)</div>
+                  <div style="font-size: 0.7rem; color: var(--cyan-neon); margin-top: 2px;" id="verifyAftNote">显著变甜！防冻糖积累</div>
+                </div>
+              </div>
+
+              <!-- 核心结论与四年级科学机理解析 -->
+              <div style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 14px; font-size: 0.88rem; line-height: 1.7; color: #F1F5F9;" id="verifyMechanism">
+                <!-- 动态填充植物机理 -->
+              </div>
+
+              <!-- 继续下一题按钮 -->
+              <div style="margin-top: 16px; display: flex; justify-content: flex-end; gap: 10px;">
+                <button class="btn-voice-ctrl" id="btnNextRandomVeg" style="background: linear-gradient(135deg, rgba(255,184,0,0.3), rgba(0,240,255,0.2)); border-color: var(--gold-neon); color: #FFF; font-weight: 700; padding: 8px 16px;">
+                  <span>🎲</span> 点名下一个蔬菜进行挑战 ➔
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==========================================
+       📋 抽屉模态框：科学数据溯源与学术文献背书
+       ========================================== -->
+  <div class="drawer-overlay" id="evidenceDrawer">
+    <div class="drawer-modal">
+      <button class="drawer-close-btn" id="btnCloseEvidence">×</button>
+
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
+        <span style="font-size: 1.8rem;">📋</span>
+        <div>
+          <h2 style="font-size: 1.35rem; color: #FFF;">科学数据溯源与学术文献背书</h2>
+          <p style="font-size: 0.82rem; color: var(--text-muted);">本课实验曲线与逻辑绝非 AI 凭空编造，均有真实测量台账与权威植物学文献严格佐证</p>
+        </div>
+      </div>
+
+      <!-- 🌟 09_student_lab: 小学生课堂手持折光糖度计实测切片卡片 -->
+      <div style="display: flex; gap: 18px; align-items: center; background: rgba(15, 23, 42, 0.7); border: 1.5px solid rgba(0, 240, 255, 0.35); border-radius: 14px; padding: 16px; margin: 16px 0;">
+        <img src="./images/09_student_lab.jpg" alt="小学生使用数字甜度检测仪实测萝卜切片" style="width: 250px; height: 145px; object-fit: cover; border-radius: 10px; border: 1.5px solid rgba(255, 255, 255, 0.2); box-shadow: 0 4px 14px rgba(0,0,0,0.5);">
+        <div style="font-size: 0.86rem; line-height: 1.6; color: #CBD5E1;">
+          <strong style="color: var(--cyan-neon); font-size: 1rem;">🔬 课堂探究原则：“不要靠嘴尝甜，要用光学仪器实测说话！”</strong><br>
+          四年级 STEAM 科学实验小组使用手持光学折光糖度仪（0-32% Brix），取白萝卜不同部位切片挤榨原汁滴入采光棱镜，经过多组重复对比测量，严谨证实了霜降后汁液糖度从 3.8°Bx 持续攀升至 7.8°Bx，为全课提供扎实的数据底气！
+        </div>
+      </div>
+
+      <!-- 模块一：班级糖度仪实测数据表 -->
+      <h3 style="font-size: 1.05rem; color: var(--gold-neon); margin-top: 20px; display: flex; align-items: center; gap: 6px;">
+        <span>①</span> 班级科学探究小组 · 手持折光糖度计 (Brix %) 实测台账
+      </h3>
+      <table class="data-table-custom">
+        <thead>
+          <tr>
+            <th>采样日期</th>
+            <th>物候 / 节气节点</th>
+            <th>环境地温 (℃)</th>
+            <th>实测糖度 (Brix %)</th>
+            <th>淀粉剩余估计</th>
+            <th>风味与口感记录</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>10月01日</td>
+            <td>初秋采摘 (对照基准)</td>
+            <td>22.5 ℃</td>
+            <td>3.8 ± 0.2</td>
+            <td>95%</td>
+            <td>水分多、生硬、辛辣味明显</td>
+          </tr>
+          <tr>
+            <td>10月12日</td>
+            <td>寒露后冷空气</td>
+            <td>14.0 ℃</td>
+            <td>4.2 ± 0.2</td>
+            <td>88%</td>
+            <td>微涩，辣味稍有减弱</td>
+          </tr>
+          <tr>
+            <td>10月24日</td>
+            <td>霜降后初霜降临</td>
+            <td>3.2 ℃</td>
+            <td>5.8 ± 0.3</td>
+            <td>60%</td>
+            <td>辣味明显褪去，口感变脆甜</td>
+          </tr>
+          <tr>
+            <td>11月02日</td>
+            <td>深霜冻存第 10 天</td>
+            <td>1.5 ℃</td>
+            <td>7.0 ± 0.2</td>
+            <td>42%</td>
+            <td>甘甜爽口，糖心晶莹</td>
+          </tr>
+          <tr>
+            <td>11月10日</td>
+            <td>立冬严寒冻存第 18 天</td>
+            <td>0.5 ℃</td>
+            <td>7.8 ± 0.3</td>
+            <td>28%</td>
+            <td>甜如雪梨，无渣多汁</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- 模块二：权威学术文献佐证 -->
+      <h3 style="font-size: 1.05rem; color: var(--cyan-neon); margin-top: 22px; display: flex; align-items: center; gap: 6px;">
+        <span>②</span> 权威植物生理学文献依据（科学性的命根子）
+      </h3>
+      
+      <div class="literature-badge-box">
+        <strong style="color: #FFF;">《园艺学报》/ 十字花科植物低温胁迫应答机制：</strong><br>
+        十字花科植物（如萝卜、白菜）在经历 0~4℃ 低温驯化（Cold Acclimation）时，细胞膜上的冷感受器启动钙离子信号级联反应，诱导 <em>BAM3 (β-淀粉酶)</em> 及蔗糖磷酸合成酶基因显著上调表达。淀粉降解为麦芽糖并合成蔗糖，细胞内可溶性糖浓度可攀升 100%~150%。
+      </div>
+
+      <div class="literature-badge-box" style="border-left-color: var(--cyan-neon);">
+        <strong style="color: #FFF;">《Plant Physiology》/ 渗透调节防冻机理：</strong><br>
+        可溶性糖是植物原生质体高效的“抗冻保护剂（Cryoprotectant）”。糖分子与水分子结合，增加未冻结水比例，依数性地降低细胞液冰点，阻止剧烈冰晶机械刺伤原生质膜，使得根茎在轻度霜冻下依然维持细胞完整性。
+      </div>
+
+      <!-- 模块三：评审追问应对策略卡 -->
+      <h3 style="font-size: 1.05rem; color: var(--green-neon); margin-top: 22px; display: flex; align-items: center; gap: 6px;">
+        <span>③</span> 评审专家 Q&A 问答底气
+      </h3>
+      <div style="background: rgba(0,0,0,0.3); padding: 14px; border-radius: 10px; margin-top: 10px; font-size: 0.84rem; line-height: 1.6;">
+        <p><strong style="color: var(--gold-neon);">评审问：“数据怎么来的？AI 有没有自己编造？”</strong></p>
+        <p style="color: #CBD5E1; margin-bottom: 8px;">
+          答：“本实验室所有曲线均以我们班级甜度仪的真实实测数据为锚点，再辅以植物学文献的米氏动力学曲线进行平滑拟合。AI 在这里的作用不是编造数据，而是‘把看不见的数据变成看得见的微观催化动画’！”
+        </p>
+        <p><strong style="color: var(--cyan-neon);">评审问：“为什么一定要做虚拟显微镜？”</strong></p>
+        <p style="color: #CBD5E1;">
+          答：“因为现实中的光学显微镜只能看到细胞轮廓，看不见淀粉长链和酶分子的催化过程；而电子显微镜无法观察活体细胞中的动态剪切。AI 虚拟显微镜为小学生补全了从‘现象观察’到‘微观本质认知’的跨越！”
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       🤖 糖糖博士 · 萝卜AI科学小助手 (只当配角)
+       ========================================== -->
+  <div class="ai-bubble-trigger" id="aiTriggerBtn">
+    <div class="ai-avatar-circle">🤖</div>
+    <div style="font-size: 0.85rem; font-weight: 700; color: #FFF;">
+      👨‍🔬 陈博导 (首席科学家)
+    </div>
+  </div>
+
+  <div class="ai-dialog-window" id="aiDialogWindow">
+    <div class="ai-dialog-header">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span>🤖</span>
+        <span>👨‍🔬 陈博导 · 首席科学家学术答疑</span>
+      </div>
+      <button style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.2rem;" id="btnCloseAI">×</button>
+    </div>
+
+    <div class="ai-messages-box" id="aiChatBox">
+      <div class="ai-msg-bubble ai-msg-assistant">
+        同学们好！我是实验室的陈博导。在今天的显微镜探索中，你们观察到淀粉水解与抗冻糖浓缩的过程了吗？无论是植物生理学机制还是实验实测数据，随时可以向我提问！
+      </div>
+    </div>
+
+    <!-- 快捷科学提问芯片 -->
+    <div class="ai-chips-suggestions">
+      <div class="ai-chip" onclick="askAIQuestion('为什么霜打的萝卜像水果一样甜？')">为什么霜打后变甜？</div>
+      <div class="ai-chip" onclick="askAIQuestion('植物没有大脑，怎么感知温度变低的？')">植物怎么感知降温？</div>
+      <div class="ai-chip" onclick="askAIQuestion('如果在25℃常温下放久了会怎样？')">常温放久了会怎样？</div>
+      <div class="ai-chip" onclick="askAIQuestion('人在冬天多吃糖也能防冻吗？')">人吃糖也能防冻吗？</div>
+    </div>
+
+    <div class="ai-input-bar">
+      <input type="text" id="aiInputText" placeholder="输入你想问的问题，按回车提问..." onkeydown="if(event.key==='Enter') sendUserAIMessage()">
+      <button onclick="sendUserAIMessage()">发送</button>
+    </div>
+  </div>
+
+  <!-- 核心逻辑脚本 -->
+  <script>
+    /* ========================================================
+       全局状态与音频合成器 (Web Audio API 免外部依赖)
+       ======================================================== */
+    const labState = {
+      soundEnabled: true,
+      currentStation: 'scope',
+      scope: {
+        stage: 1, // 1 to 7
+        tempCondition: 'frost',
+        sugarCount: 0,
+        starchResidue: 100.0,
+        freezingPoint: 0.0,
+        focusSharpness: 100,
+        isAutoTouring: false,
+        tourTimer: null,
+        warpEffect: 0,
+        warpDir: 1,
+        mouseRotX: 0,
+        mouseRotY: 0,
+        targetRotX: 0,
+        targetRotY: 0
+      },
+      timeWarp: {
+        dayIndex: 23,
+        isPlaying: false,
+        timer: null
+      },
+      variable: {
+        temp: 0,
+        days: 20
+      },
+      vegetable: {
+        current: 'radish',
+        prediction: 'sweet',
+        testedSet: new Set(),
+        streak: 0,
+        score: 0,
+        lastVoiceText: ''
+      },
+      speechEnabled: true
+    };
+
+    // 简单轻巧的科技音效发生器
+    // 👨‍🔬 沉稳厚重的低频科学仪器触感音效发生器 (老科学家学术实验室质感)
+    class SoundSynth {
+      constructor() {
+        this.ctx = null;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+      playPip(freq = 320, type = 'sine', duration = 0.09, vol = 0.14) {
+        if (!labState.soundEnabled) return;
+        try {
+          this.init();
+          const osc1 = this.ctx.createOscillator();
+          const oscSub = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc1.type = type;
+          osc1.frequency.setValueAtTime(freq, this.ctx.currentTime);
+
+          // 叠加次低频谐波，营造老科学家实体仪器的厚重触感
+          oscSub.type = 'triangle';
+          oscSub.frequency.setValueAtTime(freq * 0.5, this.ctx.currentTime);
+
+          gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+
+          osc1.connect(gain);
+          oscSub.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc1.start();
+          oscSub.start();
+          osc1.stop(this.ctx.currentTime + duration);
+          oscSub.stop(this.ctx.currentTime + duration);
+        } catch(e) {}
+      }
+      playSnip() {
+        if (!labState.soundEnabled) return;
+        this.playPip(480, 'triangle', 0.06, 0.16);
+        setTimeout(() => this.playPip(240, 'sine', 0.08, 0.12), 30);
+      }
+      playLotteryTick() {
+        if (!labState.soundEnabled) return;
+        this.playPip(220 + Math.random() * 40, 'triangle', 0.035, 0.1);
+      }
+      playChime() {
+        if (!labState.soundEnabled) return;
+        this.playPip(440, 'sine', 0.35, 0.18);
+        setTimeout(() => this.playPip(220, 'triangle', 0.3, 0.12), 40);
+      }
+      playFanfare() {
+        if (!labState.soundEnabled) return;
+        // 庄重、深沉的学术殿堂和弦 (老科学家诺贝尔级重大突破音效：低音 C3 -> G3 -> C4 -> E4 -> G4)
+        const notes = [130.81, 196.00, 261.63, 329.63, 392.00];
+        notes.forEach((freq, idx) => {
+          setTimeout(() => {
+            this.playPip(freq, 'sine', 0.45, 0.18);
+          }, idx * 110);
+        });
+        setTimeout(() => {
+          this.playPip(523.25, 'triangle', 0.6, 0.15);
+          this.playPip(261.63, 'sine', 0.6, 0.22);
+        }, 580);
+      }
+      playAlarm() {
+        if (!labState.soundEnabled) return;
+        // 严谨低回的实验室双频警报 (360Hz & 240Hz 沉稳低音警报)
+        const pulses = [
+          { f: 360, t: 0 },
+          { f: 240, t: 180 },
+          { f: 360, t: 360 },
+          { f: 240, t: 540 },
+          { f: 360, t: 720 },
+          { f: 240, t: 900 }
+        ];
+        pulses.forEach(p => {
+          setTimeout(() => {
+            this.playPip(p.f, 'sawtooth', 0.15, 0.2);
+          }, p.t);
+        });
+      }
+    }
+    const soundPlayer = new SoundSynth();
+
+    /* ========================================================
+       🎉 全屏绚丽撒花粒子系统 (Confetti Cannon)
+       ======================================================== */
+    class ConfettiCannon {
+      constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
+        this.particles = [];
+        this.animId = null;
+        this.colors = [
+          '#FFD700', '#00F0FF', '#FF3366', '#10B981', '#A78BFA',
+          '#F59E0B', '#3B82F6', '#EC4899', '#FBBF24', '#34D399'
+        ];
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+      }
+      resize() {
+        if (!this.canvas) return;
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+      }
+      burst(count = 140) {
+        if (!this.ctx) return;
+        this.resize();
+        const originX = this.canvas.width / 2;
+        const originY = this.canvas.height * 0.45;
+
+        for (let i = 0; i < count; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = 7 + Math.random() * 18;
+          this.particles.push({
+            x: originX + (Math.random() - 0.5) * 200,
+            y: originY + (Math.random() - 0.5) * 100,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 6,
+            w: 8 + Math.random() * 10,
+            h: 5 + Math.random() * 8,
+            color: this.colors[Math.floor(Math.random() * this.colors.length)],
+            rotation: Math.random() * 360,
+            vRot: (Math.random() - 0.5) * 16,
+            gravity: 0.35 + Math.random() * 0.2,
+            drag: 0.965,
+            opacity: 1,
+            decay: 0.007 + Math.random() * 0.008,
+            shape: Math.random() > 0.3 ? 'rect' : 'circle'
+          });
+        }
+
+        if (!this.animId) {
+          this.animate();
+        }
+      }
+      animate() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+          const p = this.particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += p.gravity;
+          p.vx *= p.drag;
+          p.vy *= p.drag;
+          p.rotation += p.vRot;
+          p.opacity -= p.decay;
+
+          if (p.opacity <= 0 || p.y > this.canvas.height + 50) {
+            this.particles.splice(i, 1);
+            continue;
+          }
+
+          this.ctx.save();
+          this.ctx.translate(p.x, p.y);
+          this.ctx.rotate((p.rotation * Math.PI) / 180);
+          this.ctx.globalAlpha = Math.max(0, p.opacity);
+          this.ctx.fillStyle = p.color;
+
+          if (p.shape === 'rect') {
+            this.ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+          } else {
+            this.ctx.beginPath();
+            this.ctx.arc(0, 0, p.w / 2.5, 0, Math.PI * 2);
+            this.ctx.fill();
+          }
+          this.ctx.restore();
+        }
+
+        if (this.particles.length > 0) {
+          this.animId = requestAnimationFrame(() => this.animate());
+        } else {
+          this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+          this.animId = null;
+        }
+      }
+    }
+    const confettiCannon = new ConfettiCannon('confettiCanvas');
+
+    /* ========================================================
+       🚨 实验室警报控制器 (Alarm Controller)
+       ======================================================== */
+    const alarmController = {
+      timer: null,
+      trigger() {
+        soundPlayer.playAlarm();
+        const overlay = document.getElementById('alarmFlashOverlay');
+        const bench = document.getElementById('hypothesisWorkbench');
+        const chamber = document.getElementById('verifyChamberBox');
+
+        if (overlay) overlay.classList.add('active');
+        if (bench) bench.classList.add('shake-alarm');
+        if (chamber) chamber.classList.add('shake-alarm');
+
+        if (this.timer) clearTimeout(this.timer);
+        this.timer = setTimeout(() => {
+          if (overlay) overlay.classList.remove('active');
+          if (bench) bench.classList.remove('shake-alarm');
+          if (chamber) chamber.classList.remove('shake-alarm');
+        }, 2200);
+      }
+    };
+
+    /* ========================================================
+       🎙️ 资深男博士·老科学家 AI 语音配音播报系统 (Web Speech API)
+       ======================================================== */
+    class VoiceAnnouncer {
+      constructor() {
+        this.currentAudio = null;
+        this.audioMap = {
+          'intro': './audio/intro.mp3',
+          'audition': './audio/audition.mp3',
+          // 8 种蔬菜点名播报
+          'roll_radish': './audio/roll_radish.mp3',
+          'roll_tomato': './audio/roll_tomato.mp3',
+          'roll_cabbage': './audio/roll_cabbage.mp3',
+          'roll_cucumber': './audio/roll_cucumber.mp3',
+          'roll_spinach': './audio/roll_spinach.mp3',
+          'roll_chili': './audio/roll_chili.mp3',
+          'roll_carrot': './audio/roll_carrot.mp3',
+          'roll_eggplant': './audio/roll_eggplant.mp3',
+          // 8 种蔬菜裁决正误解密 (答对/答错)
+          'radish_correct': './audio/radish_correct.mp3',
+          'radish_wrong': './audio/radish_wrong.mp3',
+          'tomato_correct': './audio/tomato_correct.mp3',
+          'tomato_wrong': './audio/tomato_wrong.mp3',
+          'cabbage_correct': './audio/cabbage_correct.mp3',
+          'cabbage_wrong': './audio/cabbage_wrong.mp3',
+          'cucumber_correct': './audio/cucumber_correct.mp3',
+          'cucumber_wrong': './audio/cucumber_wrong.mp3',
+          'spinach_correct': './audio/spinach_correct.mp3',
+          'spinach_wrong': './audio/spinach_wrong.mp3',
+          'chili_correct': './audio/chili_correct.mp3',
+          'chili_wrong': './audio/chili_wrong.mp3',
+          'carrot_correct': './audio/carrot_correct.mp3',
+          'carrot_wrong': './audio/carrot_wrong.mp3',
+          'eggplant_correct': './audio/eggplant_correct.mp3',
+          'eggplant_wrong': './audio/eggplant_wrong.mp3',
+          // 科学答疑
+          'q1_sweet': './audio/q1_sweet.mp3',
+          'q2_temp': './audio/q2_temp.mp3',
+          'q3_warm': './audio/q3_warm.mp3',
+          'q4_human': './audio/q4_human.mp3'
+        };
+      }
+      playKey(key, fallbackText, onEnd) {
+        if (!labState.speechEnabled) {
+          if (onEnd) onEnd();
+          return;
+        }
+        this.stop();
+        const visualizer = document.getElementById('voiceVisualizer');
+        const notice = document.getElementById('voiceStatusNotice');
+        if (visualizer) visualizer.classList.add('speaking');
+        if (notice) notice.innerText = '🎙️ 正在进行学术解密播报...';
+
+        const audioSrc = this.audioMap[key];
+        if (audioSrc) {
+          const audio = new Audio(audioSrc);
+          this.currentAudio = audio;
+          audio.onended = () => {
+            if (visualizer) visualizer.classList.remove('speaking');
+            if (notice) notice.innerText = '✅ 学术解密完毕，可点击重播或点名下一项蔬菜';
+            if (onEnd) onEnd();
+          };
+          audio.onerror = () => {
+            console.warn('[Audio] Failed to load MP3, preventing fallback to female voice.');
+            if (onEnd) onEnd();
+          };
+          audio.play().catch(e => {
+            console.warn('[Audio] Autoplay prevented, waiting for user click:', e);
+            if (onEnd) onEnd();
+          });
+        } else {
+          if (onEnd) onEnd();
+        }
+      }
+      speak(text, onEnd) {
+        this.playKey('audition', text, onEnd);
+      }
+      speakFallback(text, onEnd) {
+        if (onEnd) onEnd();
+      }
+      stop() {
+        if (this.currentAudio) {
+          this.currentAudio.pause();
+          this.currentAudio.currentTime = 0;
+          this.currentAudio = null;
+        }
+        if (this.synth) {
+          this.synth.cancel();
+        }
+        const visualizer = document.getElementById('voiceVisualizer');
+        if (visualizer) visualizer.classList.remove('speaking');
+      }
+    }
+    const voiceAnnouncer = new VoiceAnnouncer();
+
+    // 切换音效按钮
+    document.getElementById('btnToggleSound').addEventListener('click', () => {
+      labState.soundEnabled = !labState.soundEnabled;
+      document.getElementById('soundIcon').innerText = labState.soundEnabled ? '🔊' : '🔇';
+      document.getElementById('soundText').innerText = labState.soundEnabled ? '音效开' : '静音';
+      if (labState.soundEnabled) soundPlayer.playPip(900);
+    });
+
+    /* ========================================================
+       四大站点 TAB 切换
+       ======================================================== */
+    const tabButtons = document.querySelectorAll('.station-tab-btn');
+    const contentPanels = document.querySelectorAll('.station-content-panel');
+
+    tabButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        soundPlayer.playPip(600);
+        const target = btn.getAttribute('data-station');
+        tabButtons.forEach(b => b.classList.remove('active'));
+        contentPanels.forEach(p => p.classList.remove('active'));
+
+        btn.classList.add('active');
+        const activePanel = document.getElementById(`panel-${target}`);
+        if (activePanel) activePanel.classList.add('active');
+        labState.currentStation = target;
+
+        // 重新自适应图表
+        if (target === 'timewarp' && timeChart) timeChart.resize();
+        if (target === 'variable' && varChart) varChart.resize();
+      });
+    });
+
+    /* ========================================================
+       🔬 站点 1：3D 虚拟显微镜图像引擎
+       ======================================================== */
+    const canvas = document.getElementById('microCanvas');
+    const ctx = canvas.getContext('2d');
+    const scopeViewport = document.getElementById('scopeViewport');
+    const glareOverlay = document.getElementById('scopeOpticalGlare');
+    let canvasW = 800, canvasH = 580;
+
+    function resizeCanvas() {
+      if (!canvas) return;
+      const rect = scopeViewport.getBoundingClientRect();
+      canvasW = canvas.width = rect.width;
+      canvasH = canvas.height = rect.height;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    setTimeout(resizeCanvas, 50);
+
+    // 鼠标在 3D 镜头上的视差追踪
+    scopeViewport.addEventListener('mousemove', (e) => {
+      const rect = scopeViewport.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width - 0.5;
+      const y = (e.clientY - rect.top) / rect.height - 0.5;
+      labState.scope.targetRotY = x * 18;
+      labState.scope.targetRotX = -y * 18;
+
+      const glareX = Math.round((x + 0.5) * 100);
+      const glareY = Math.round((y + 0.5) * 100);
+      glareOverlay.style.setProperty('--glare-x', glareX + '%');
+      glareOverlay.style.setProperty('--glare-y', glareY + '%');
+    });
+
+    scopeViewport.addEventListener('mouseleave', () => {
+      labState.scope.targetRotX = 0;
+      labState.scope.targetRotY = 0;
+    });
+
+    // 3D 物理对焦手轮交互
+    const focusKnob = document.getElementById('focusWheelKnob');
+    let isDraggingFocus = false;
+    let startFocusY = 0;
+    focusKnob.addEventListener('mousedown', (e) => {
+      isDraggingFocus = true;
+      startFocusY = e.clientY;
+      soundPlayer.playPip(1100);
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!isDraggingFocus) return;
+      const dy = e.clientY - startFocusY;
+      startFocusY = e.clientY;
+      labState.scope.focusSharpness = Math.min(100, Math.max(30, labState.scope.focusSharpness - dy * 0.8));
+      document.getElementById('focusValText').innerText = Math.round(labState.scope.focusSharpness) + '%';
+      focusKnob.style.backgroundPositionY = (parseFloat(focusKnob.style.backgroundPositionY || '0') + dy) + 'px';
+      soundPlayer.playPip(700 + labState.scope.focusSharpness * 4, 'sine', 0.03);
+    });
+    window.addEventListener('mouseup', () => { isDraggingFocus = false; });
+
+    // 鼠标滚轮缩放
+    scopeViewport.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      if (e.deltaY < 0) zoomInScope();
+      else zoomOutScope();
+    }, { passive: false });
+
+    // 预加载超清 3D 实景显微镜图片序列 (Images 2 to 7)
+    const stageImages = {
+      1: new Image(),
+      2: new Image(),
+      3: new Image(),
+      4: new Image(),
+      5: new Image(),
+      6: new Image(),
+      7: new Image()
+    };
+    stageImages[1].src = './images/02_radish_macro.jpg';
+    stageImages[2].src = './images/03_radish_tissue.jpg';
+    stageImages[3].src = './images/04_plant_cell.jpg';
+    stageImages[4].src = './images/04_plant_cell.jpg';
+    stageImages[5].src = './images/05_cell_vacuole_starch.jpg';
+    stageImages[6].src = './images/06_enzyme_scissors.jpg';
+    stageImages[7].src = './images/07_sugar_result.jpg';
+
+    // 阶段元数据配置 (7 级连续深入放大)
+    const stageMetadata = {
+      1: {
+        zoomText: '1x (宏观视野)',
+        sliderVal: 1,
+        badge: '阶段 1/7：完整白萝卜',
+        narrative: '【第 1 级 · 宏观整体】：新鲜采摘的白萝卜肉质根。表皮坚韧，中段富含营养组织。请点击【🔎 一级级深入放大 ➔】切开肉质根，穿透表皮深入储藏薄壁组织！'
+      },
+      2: {
+        zoomText: '50x (组织微观)',
+        sliderVal: 50,
+        badge: '阶段 2/7：薄壁储藏组织',
+        narrative: '【第 2 级 · 组织社区】：飞跃切入萝卜肉质根内部！眼前呈现整齐排列的薄壁储藏细胞群落，蜂巢状天然晶格紧密相连。点击【深入放大 ➔】锁定单个细胞外层！'
+      },
+      3: {
+        zoomText: '200x (坚韧细胞壁)',
+        sliderVal: 200,
+        badge: '阶段 3/7：坚韧植物细胞壁',
+        narrative: '【第 3 级 · 坚韧细胞壁】：镜头贴近单个细胞！展示出厚实的双层植物细胞壁（纤维素骨架）与紧贴内侧的浅蓝质膜。它如同坚固盔甲保护细胞，但挡不住细胞内结冰刺伤。点击【深入放大 ➔】穿透细胞壁！'
+      },
+      4: {
+        zoomText: '1,000x (晶莹大液泡)',
+        sliderVal: 1000,
+        badge: '阶段 4/7：晶莹中央大液泡',
+        narrative: '【第 4 级 · 晶莹大液泡】：穿过细胞壁，视野豁然开朗！中央占据 85% 面积的水晶巨球正是【中央大液泡】，充盈着储存糖分的细胞液；右上角是被挤压在边缘的【细胞核】，周边漂浮着【淀粉体】！'
+      },
+      5: {
+        zoomText: '10,000x (高倍多糖链)',
+        sliderVal: 10000,
+        badge: '阶段 5/7：淀粉多糖螺旋长链',
+        narrative: '【第 5 级 · 淀粉多糖链】：进入淀粉体内部！密集淀粉粒解体，化为成千上万个葡萄糖残基串联成的螺旋巨龙分子链。糖分被糖苷键牢牢锁住，此时没有游离甜味，萝卜生涩辛辣。点击【深入放大 ➔】看金色酶小剪刀如何剪糖！'
+      },
+      6: {
+        zoomText: '50,000x (纳米剪切场)',
+        sliderVal: 50000,
+        badge: '阶段 6/7：酶切长链淀粉',
+        narrative: '【第 6 级 · 酶剪淀粉】：金色小剪刀状的“β-淀粉酶”在霜降低温下疯狂加速运转！它靠近长链淀粉，咔嚓咔嚓精准剪断糖苷键，闪烁粒子爆裂，将多糖长链迅速分解！'
+      },
+      7: {
+        zoomText: '50,000x+ (终极转糖结果)',
+        sliderVal: 50000,
+        badge: '阶段 7/7：转化发光糖颗粒',
+        narrative: '【第 7 级 · 终极转糖】：长链多糖彻底转化为大量晶莹发光的金色麦芽糖与葡萄糖颗粒！细胞液中糖浓度飙升，冰点降至 -2.8℃，完美抵御霜冻，吃起来像雪梨一样清甜！'
+      }
+    };
+
+    // 深入放大下一级
+    function zoomInScope() {
+      if (labState.scope.stage < 7) {
+        soundPlayer.playPip(900);
+        triggerWarpEffect(1);
+        jumpToScopeStage(labState.scope.stage + 1);
+      } else {
+        soundPlayer.playSuccess();
+        triggerWarpEffect(1);
+      }
+    }
+
+    // 缩回上一级
+    function zoomOutScope() {
+      if (labState.scope.stage > 1) {
+        soundPlayer.playPip(500);
+        triggerWarpEffect(-1);
+        jumpToScopeStage(labState.scope.stage - 1);
+      }
+    }
+
+    // 跳转到指定阶段 (1~7)
+    function jumpToScopeStage(stg) {
+      labState.scope.stage = stg;
+
+      // 更新面包屑
+      document.querySelectorAll('.breadcrumb-step-item').forEach(el => {
+        const s = parseInt(el.getAttribute('data-stage'));
+        if (s === stg) el.classList.add('active');
+        else el.classList.remove('active');
+      });
+
+      // 更新底部电影胶卷
+      document.querySelectorAll('.filmstrip-card').forEach(el => {
+        const f = parseInt(el.getAttribute('data-film'));
+        if (f === stg) el.classList.add('active');
+        else el.classList.remove('active');
+      });
+
+      const meta = stageMetadata[stg];
+      document.getElementById('hudZoomText').innerText = meta.zoomText;
+      document.getElementById('hudLevelBadge').innerText = meta.badge;
+      document.getElementById('scopeZoomSlider').value = meta.sliderVal;
+      document.getElementById('sliderZoomVal').innerText = meta.sliderVal + 'x';
+      document.getElementById('scopeNarrativeText').innerText = meta.narrative;
+
+      // 动态数据模拟演进
+      if (stg === 1) {
+        labState.scope.sugarCount = 0;
+        labState.scope.starchResidue = 100.0;
+        labState.scope.freezingPoint = 0.0;
+      } else if (stg === 2) {
+        labState.scope.sugarCount = 50;
+        labState.scope.starchResidue = 98.0;
+        labState.scope.freezingPoint = -0.2;
+      } else if (stg === 3) {
+        labState.scope.sugarCount = 120;
+        labState.scope.starchResidue = 94.0;
+        labState.scope.freezingPoint = -0.4;
+      } else if (stg === 4) {
+        labState.scope.sugarCount = 280;
+        labState.scope.starchResidue = 88.0;
+        labState.scope.freezingPoint = -0.8;
+      } else if (stg === 5) {
+        labState.scope.sugarCount = 450;
+        labState.scope.starchResidue = 76.0;
+        labState.scope.freezingPoint = -1.3;
+      } else if (stg === 6) {
+        labState.scope.sugarCount = 1180;
+        labState.scope.starchResidue = 42.0;
+        labState.scope.freezingPoint = -2.2;
+      } else if (stg === 7) {
+        labState.scope.sugarCount = 1860;
+        labState.scope.starchResidue = 26.5;
+        labState.scope.freezingPoint = -2.8;
+      }
+
+      document.getElementById('scopeSugarCount').innerText = labState.scope.sugarCount.toLocaleString() + ' 粒';
+      document.getElementById('scopeStarchLeft').innerText = labState.scope.starchResidue.toFixed(1) + '%';
+      document.getElementById('scopeFreezingPoint').innerText = labState.scope.freezingPoint.toFixed(1) + '℃';
+    }
+
+    // 触发穿梭光速隧道特效
+    function triggerWarpEffect(dir) {
+      labState.scope.warpEffect = 1.0;
+      labState.scope.warpDir = dir;
+    }
+
+    // 自动连续穿梭巡航
+    function toggleAutoScopeTour() {
+      labState.scope.isAutoTouring = !labState.scope.isAutoTouring;
+      const icon = document.getElementById('tourIcon');
+      if (labState.scope.isAutoTouring) {
+        icon.innerText = '⏸';
+        soundPlayer.playSuccess();
+        labState.scope.tourTimer = setInterval(() => {
+          let next = labState.scope.stage + 1;
+          if (next > 7) next = 1;
+          triggerWarpEffect(1);
+          jumpToScopeStage(next);
+        }, 3800);
+      } else {
+        icon.innerText = '🚀';
+        clearInterval(labState.scope.tourTimer);
+      }
+    }
+
+    // 绑定连续滑块
+    document.getElementById('scopeZoomSlider').addEventListener('input', (e) => {
+      const val = parseInt(e.target.value);
+      document.getElementById('sliderZoomVal').innerText = val + 'x';
+      if (val < 20) jumpToScopeStage(1);
+      else if (val < 100) jumpToScopeStage(2);
+      else if (val < 500) jumpToScopeStage(3);
+      else if (val < 3000) jumpToScopeStage(4);
+      else if (val < 20000) jumpToScopeStage(5);
+      else if (val < 45000) jumpToScopeStage(6);
+      else jumpToScopeStage(7);
+    });
+
+    // 显微镜温度条件切换
+    document.getElementById('btnScopeFrost').addEventListener('click', () => {
+      soundPlayer.playPip(800);
+      labState.scope.tempCondition = 'frost';
+      document.getElementById('btnScopeFrost').classList.add('active-frost');
+      document.getElementById('btnScopeWarm').classList.remove('active-warm');
+      document.getElementById('hudTempText').innerText = '2.0℃ (霜降低温·酶催化加速)';
+      document.getElementById('hudTempText').style.color = 'var(--cyan-neon)';
+    });
+
+    document.getElementById('btnScopeWarm').addEventListener('click', () => {
+      soundPlayer.playPip(400);
+      labState.scope.tempCondition = 'warm';
+      document.getElementById('btnScopeWarm').classList.add('active-warm');
+      document.getElementById('btnScopeFrost').classList.remove('active-frost');
+      document.getElementById('hudTempText').innerText = '25.0℃ (常温室内·酶怠工休眠)';
+      document.getElementById('hudTempText').style.color = '#F87171';
+    });
+
+    // 绘制全屏/自适应图像
+    function drawCoverImage(img, alpha = 1) {
+      if (!img.complete || img.naturalWidth === 0) return;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      const imgRatio = img.naturalWidth / img.naturalHeight;
+      const canvasRatio = canvasW / canvasH;
+      let drawW, drawH, drawX, drawY;
+
+      if (canvasRatio > imgRatio) {
+        drawW = canvasW;
+        drawH = canvasW / imgRatio;
+        drawX = 0;
+        drawY = (canvasH - drawH) / 2;
+      } else {
+        drawH = canvasH;
+        drawW = canvasH * imgRatio;
+        drawX = (canvasW - drawW) / 2;
+        drawY = 0;
+      }
+      ctx.drawImage(img, drawX, drawY, drawW, drawH);
+      ctx.restore();
+    }
+
+    // 绘制科幻激光 HUD 标注引线
+    function drawHudCallout(c, fromX, fromY, toX, toY, text, color, align) {
+      c.save();
+      c.beginPath();
+      c.arc(fromX, fromY, 4.5, 0, Math.PI * 2);
+      c.fillStyle = color;
+      c.shadowColor = color;
+      c.shadowBlur = 10;
+      c.fill();
+
+      c.beginPath();
+      c.moveTo(fromX, fromY);
+      c.lineTo(toX, toY);
+      const isLeft = align.includes('left');
+      const endX = isLeft ? toX - 70 : toX + 70;
+      c.lineTo(endX, toY);
+      c.strokeStyle = color;
+      c.lineWidth = 1.8;
+      c.stroke();
+
+      c.font = 'bold 11px sans-serif';
+      const textW = c.measureText(text).width;
+      const rectX = isLeft ? endX - textW - 14 : endX;
+      c.fillStyle = 'rgba(10, 17, 36, 0.88)';
+      c.fillRect(rectX, toY - 15, textW + 14, 24);
+      c.strokeStyle = color;
+      c.lineWidth = 1.2;
+      c.strokeRect(rectX, toY - 15, textW + 14, 24);
+
+      c.fillStyle = '#FFFFFF';
+      c.shadowBlur = 0;
+      c.fillText(text, rectX + 7, toY + 2);
+      c.restore();
+    }
+
+    // 动态分子剪切发光粒子 (Stage 6)
+    const cuttingSparks = [];
+    for (let p = 0; p < 24; p++) {
+      cuttingSparks.push({
+        x: 0, y: 0,
+        vx: (Math.random() - 0.5) * 80,
+        vy: (Math.random() - 0.5) * 80 - 20,
+        size: 2 + Math.random() * 4,
+        alpha: Math.random()
+      });
+    }
+
+    // 3D 渲染主循环
+    let lastAnimTime = 0;
+    function render3DMicroscope(time) {
+      requestAnimationFrame(render3DMicroscope);
+      const delta = (time - lastAnimTime) / 1000;
+      lastAnimTime = time;
+
+      // 平滑插值 3D 视差
+      labState.scope.mouseRotX += (labState.scope.targetRotX - labState.scope.mouseRotX) * 0.1;
+      labState.scope.mouseRotY += (labState.scope.targetRotY - labState.scope.mouseRotY) * 0.1;
+      canvas.style.transform = `rotateX(${labState.scope.mouseRotX}deg) rotateY(${labState.scope.mouseRotY}deg)`;
+
+      ctx.clearRect(0, 0, canvasW, canvasH);
+
+      // 对焦模糊度
+      if (labState.scope.focusSharpness < 90) {
+        const blurAmt = (100 - labState.scope.focusSharpness) * 0.08;
+        ctx.filter = `blur(${blurAmt}px)`;
+      } else {
+        ctx.filter = 'none';
+      }
+
+      const stg = labState.scope.stage;
+      const now = Date.now() * 0.002;
+      const cx = canvasW / 2;
+      const cy = canvasH / 2;
+
+      // 核心：直接绘制对应的超清真实 3D 渲染图片！
+      drawCoverImage(stageImages[stg], 1.0);
+
+      // 在超清实景上叠加高科技全息交互层
+      if (stg === 1) {
+        // Stage 1: 扫描光束与瞄准光环
+        ctx.save();
+        ctx.beginPath();
+        const scanY = cy - 80 + Math.sin(now * 1.5) * 60;
+        ctx.moveTo(cx - 160, scanY);
+        ctx.lineTo(cx + 160, scanY);
+        ctx.strokeStyle = '#00F0FF';
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = '#00F0FF';
+        ctx.shadowBlur = 14;
+        ctx.stroke();
+
+        drawHudCallout(ctx, cx - 40, cy + 20, cx - 110, cy - 60, '🥕 新鲜白萝卜 (多汁储藏肉质根)', '#00F0FF', 'top-left');
+        drawHudCallout(ctx, cx + 90, cy - 60, cx + 150, cy - 80, '🌿 翠绿叶簇 (光合作用制造淀粉)', '#10B981', 'top-right');
+        ctx.restore();
+
+      } else if (stg === 2) {
+        // Stage 2: 组织锁定雷达
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, 65 + Math.sin(now * 2) * 5, 0, Math.PI * 2);
+        ctx.strokeStyle = '#FFB800';
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([8, 6]);
+        ctx.shadowColor = '#FFB800';
+        ctx.shadowBlur = 12;
+        ctx.stroke();
+
+        drawHudCallout(ctx, cx, cy, cx + 80, cy - 70, '🌐 薄壁储藏组织细胞 (蜂巢排列社区)', '#FFB800', 'top-right');
+        ctx.restore();
+
+      } else if (stg === 3) {
+        // Stage 3: 细胞壁引线
+        ctx.save();
+        drawHudCallout(ctx, cx - 90, cy - 70, cx - 160, cy - 100, '🛡️ 双层植物细胞壁 (纤维素微纤丝骨架)', '#10B981', 'top-left');
+        drawHudCallout(ctx, cx + 110, cy + 60, cx + 170, cy + 80, '🌿 质膜/细胞膜 (温度感应通道)', '#00F0FF', 'bottom-right');
+        ctx.restore();
+
+      } else if (stg === 4) {
+        // Stage 4: 大液泡与细胞核引线
+        ctx.save();
+        drawHudCallout(ctx, cx - 20, cy - 10, cx - 130, cy - 60, '💧 晶莹中央大液泡 (占体积85% · 储存糖水)', '#00F0FF', 'top-left');
+        drawHudCallout(ctx, cx + 120, cy - 80, cx + 180, cy - 110, '🧬 细胞核 (被大液泡挤在边缘)', '#C084FC', 'top-right');
+        drawHudCallout(ctx, cx - 90, cy + 90, cx - 160, cy + 120, '🥔 淀粉体 (储存大量长链淀粉粒)', '#FFB800', 'bottom-left');
+        ctx.restore();
+
+      } else if (stg === 5) {
+        // Stage 5: 淀粉长链发光标记
+        ctx.save();
+        drawHudCallout(ctx, cx, cy - 20, cx + 80, cy - 80, '🥔 螺旋多糖长链 (直链与支链淀粉)', '#FFB800', 'top-right');
+        drawHudCallout(ctx, cx - 80, cy + 70, cx - 150, cy + 100, '🔗 α-1,4 糖苷键牢牢锁住糖分 (无甜味)', '#00F0FF', 'bottom-left');
+        ctx.restore();
+
+      } else if (stg === 6) {
+        // Stage 6: 酶剪刀粒子火花爆炸
+        ctx.save();
+        const sparkCenter = { x: cx - 40, y: cy + 10 };
+        const isFrost = (labState.scope.tempCondition === 'frost');
+
+        cuttingSparks.forEach(sp => {
+          sp.x += sp.vx * delta * (isFrost ? 1.5 : 0.2);
+          sp.y += sp.vy * delta * (isFrost ? 1.5 : 0.2);
+          sp.alpha -= 0.6 * delta;
+          if (sp.alpha <= 0) {
+            sp.x = sparkCenter.x + (Math.random() - 0.5) * 20;
+            sp.y = sparkCenter.y + (Math.random() - 0.5) * 20;
+            sp.alpha = 1.0;
+          }
+
+          ctx.beginPath();
+          ctx.arc(sp.x, sp.y, sp.size, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255, 184, 0, ${sp.alpha})`;
+          ctx.shadowColor = '#FFB800';
+          ctx.shadowBlur = 8;
+          ctx.fill();
+        });
+
+        drawHudCallout(ctx, sparkCenter.x, sparkCenter.y, sparkCenter.x - 120, sparkCenter.y - 70, '✂️ β-淀粉酶 (纳米金色小剪刀催化位点)', '#FFB800', 'top-left');
+        drawHudCallout(ctx, cx + 110, cy - 20, cx + 170, cy - 60, '🍬 释放麦芽糖与葡萄糖甜味颗粒', '#00F0FF', 'top-right');
+        ctx.restore();
+
+      } else if (stg === 7) {
+        // Stage 7: 金碧辉煌糖分子
+        ctx.save();
+        drawHudCallout(ctx, cx, cy - 30, cx + 90, cy - 90, '🍬 大量可溶性糖颗粒充盈细胞液', '#FFB800', 'top-right');
+        drawHudCallout(ctx, cx - 70, cy + 80, cx - 140, cy + 110, '❄️ 细胞液冰点降至 -2.8℃，成功防冻保鲜！', '#10B981', 'bottom-left');
+        ctx.restore();
+      }
+
+      ctx.filter = 'none';
+
+      // 绘制穿梭光速隧道特效 (Warp Tunnel)
+      if (labState.scope.warpEffect > 0) {
+        drawWarpSpeedTunnel(labState.scope.warpEffect, labState.scope.warpDir);
+        labState.scope.warpEffect = Math.max(0, labState.scope.warpEffect - delta * 2.2);
+      }
+    }
+    requestAnimationFrame(render3DMicroscope);
+
+    // 绘制穿梭光速隧道特效
+    function drawWarpSpeedTunnel(progress, dir) {
+      ctx.save();
+      const cx = canvasW / 2;
+      const cy = canvasH / 2;
+      const alpha = progress * 0.75;
+
+      ctx.fillStyle = `rgba(0, 240, 255, ${alpha * 0.25})`;
+      ctx.fillRect(0, 0, canvasW, canvasH);
+
+      ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+      ctx.lineWidth = 2.5;
+      const count = 32;
+      for (let i = 0; i < count; i++) {
+        const angle = (i * (360 / count) * Math.PI) / 180;
+        const innerR = 40 + (1 - progress) * 80;
+        const outerR = 200 + (1 - progress) * 260;
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(angle) * innerR, cy + Math.sin(angle) * innerR);
+        ctx.lineTo(cx + Math.cos(angle) * outerR, cy + Math.sin(angle) * outerR);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    /* ========================================================
+       ⏱️ 站点 2：时间快进器 (ECharts 双轴曲线图表)
+       ======================================================== */
+    const timeDays = [];
+    const dateLabels = [];
+    const tempCurve = [];
+    const brixCurve = [];
+
+    for (let i = 0; i <= 40; i++) {
+      let m = 10, d = 1 + i;
+      if (d > 31) { m = 11; d = d - 31; }
+      dateLabels.push(`${m}月${d}日`);
+
+      let t;
+      if (i < 20) {
+        t = 22 - (i * 0.4) + (Math.sin(i) * 0.8);
+      } else if (i <= 26) {
+        t = 14 - ((i - 20) * 1.8);
+      } else {
+        t = 2.5 + Math.sin(i * 0.7) * 1.2;
+      }
+      tempCurve.push(parseFloat(t.toFixed(1)));
+
+      let b;
+      if (i < 22) {
+        b = 3.8 + (i * 0.03);
+      } else {
+        const progress = (i - 22) / 18;
+        b = 4.4 + (progress * 3.4) + Math.sin(i * 0.4) * 0.1;
+      }
+      brixCurve.push(parseFloat(b.toFixed(1)));
+    }
+
+    let timeChart = null;
+    function initTimeChart() {
+      const chartDom = document.getElementById('timeEChart');
+      if (!chartDom) return;
+      if (typeof echarts !== 'undefined') {
+        timeChart = echarts.init(chartDom);
+        updateTimeChartOption();
+      }
+    }
+
+    function updateTimeChartOption() {
+      if (!timeChart) return;
+      const currentIdx = labState.timeWarp.dayIndex;
+
+      const option = {
+        backgroundColor: 'transparent',
+        tooltip: {
+          trigger: 'axis',
+          backgroundColor: 'rgba(10, 17, 36, 0.9)',
+          borderColor: '#00F0FF',
+          textStyle: { color: '#FFF' },
+          formatter: function(params) {
+            let res = `<strong style="color:#00F0FF">${params[0].axisValue}</strong><br/>`;
+            params.forEach(p => {
+              res += `${p.marker} ${p.seriesName}: <strong>${p.value}</strong><br/>`;
+            });
+            return res;
+          }
+        },
+        legend: {
+          data: ['手持糖度仪实测 (°Bx)', '日均环境气温 (℃)'],
+          textStyle: { color: '#94A3B8' },
+          top: 5
+        },
+        grid: {
+          left: '4%', right: '4%', bottom: '8%', top: '16%', containLabel: true
+        },
+        xAxis: {
+          type: 'category',
+          data: dateLabels,
+          axisLine: { lineStyle: { color: 'rgba(255,255,255,0.2)' } },
+          axisLabel: { color: '#94A3B8', interval: 5 }
+        },
+        yAxis: [
+          {
+            type: 'value',
+            name: '糖度 (°Bx)',
+            min: 2, max: 9,
+            nameTextStyle: { color: '#FFB800' },
+            axisLine: { lineStyle: { color: '#FFB800' } },
+            splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
+            axisLabel: { color: '#FFB800' }
+          },
+          {
+            type: 'value',
+            name: '气温 (℃)',
+            min: -2, max: 26,
+            nameTextStyle: { color: '#60A5FA' },
+            axisLine: { lineStyle: { color: '#60A5FA' } },
+            splitLine: { show: false },
+            axisLabel: { color: '#60A5FA' }
+          }
+        ],
+        series: [
+          {
+            name: '手持糖度仪实测 (°Bx)',
+            type: 'line',
+            yAxisIndex: 0,
+            data: brixCurve,
+            smooth: true,
+            lineStyle: { color: '#FFB800', width: 3 },
+            itemStyle: { color: '#FFB800' },
+            markPoint: {
+              data: [
+                { name: '当前点', coord: [currentIdx, brixCurve[currentIdx]], symbolSize: 14 }
+              ]
+            }
+          },
+          {
+            name: '日均环境气温 (℃)',
+            type: 'line',
+            yAxisIndex: 1,
+            data: tempCurve,
+            smooth: true,
+            lineStyle: { color: '#38BDF8', width: 2, type: 'dashed' },
+            itemStyle: { color: '#38BDF8' }
+          }
+        ]
+      };
+      timeChart.setOption(option);
+    }
+
+    const timeSlider = document.getElementById('timeSlider');
+    timeSlider.addEventListener('input', (e) => {
+      setTimeDay(parseInt(e.target.value));
+    });
+
+    function setTimeDay(idx) {
+      labState.timeWarp.dayIndex = idx;
+      timeSlider.value = idx;
+
+      const dateStr = dateLabels[idx];
+      const curTemp = tempCurve[idx];
+      const curBrix = brixCurve[idx];
+
+      document.getElementById('currentDateDisplay').innerText = dateStr;
+      document.getElementById('currentDayTemp').innerText = curTemp + ' ℃';
+      document.getElementById('refractometerVal').innerText = curBrix.toFixed(1) + ' °Bx';
+
+      const ratio = Math.min(100, Math.max(10, (curBrix / 10) * 100));
+      document.getElementById('refractometerCircle').style.background = 
+        `linear-gradient(to top, rgba(56, 189, 248, 0.7) 0%, rgba(56, 189, 248, 0.7) ${ratio}%, #FFFFFF ${ratio}%, #FFFFFF 100%)`;
+
+      const tasteEl = document.getElementById('currentDayTaste');
+      const defEl = document.getElementById('currentDayDef');
+      const narrEl = document.getElementById('timeWarpNarrative');
+
+      if (idx < 22) {
+        tasteEl.innerText = '微生涩、伴随轻微辛辣';
+        tasteEl.style.color = '#94A3B8';
+        defEl.innerText = '常规淀粉储藏期 (酶休眠)';
+        defEl.style.color = 'var(--text-muted)';
+        narrEl.innerText = `在 ${dateStr}，气温保持在 ${curTemp}℃。植物体处于正常的日常代谢期，淀粉以长链多糖的形式稳定保存在细胞液泡中，甜度仅为 ${curBrix}°Bx。`;
+      } else if (idx < 30) {
+        tasteEl.innerText = '清甜爽口，微辣已褪去';
+        tasteEl.style.color = 'var(--cyan-neon)';
+        defEl.innerText = '抗冻酶基因激活，加速转糖';
+        defEl.style.color = 'var(--cyan-neon)';
+        narrEl.innerText = `霜降初霜降临！夜温骤降至 ${curTemp}℃。低温信号刺激萝卜体内的 β-淀粉酶活性升高，糖苷键持续剪断，糖度攀升至 ${curBrix}°Bx，清脆微甜！`;
+      } else {
+        tasteEl.innerText = '如雪梨般甘甜清润，多汁无渣';
+        tasteEl.style.color = 'var(--gold-neon)';
+        defEl.innerText = '深冷冻存防御峰值 (降冰点防冻)';
+        defEl.style.color = 'var(--green-neon)';
+        narrEl.innerText = `已进入持续严寒低温期 (${curTemp}℃)。萝卜体内的可溶性糖积累达到顶峰 (${curBrix}°Bx)，细胞液渗透压极大增加，成功抵御了外界严寒结冰的威胁！`;
+      }
+
+      document.querySelectorAll('.time-node-marker').forEach(m => m.classList.remove('active'));
+      if (idx <= 2) document.querySelectorAll('.time-node-marker')[0]?.classList.add('active');
+      else if (idx <= 12) document.querySelectorAll('.time-node-marker')[1]?.classList.add('active');
+      else if (idx <= 26) document.querySelectorAll('.time-node-marker')[2]?.classList.add('active');
+      else if (idx <= 35) document.querySelectorAll('.time-node-marker')[3]?.classList.add('active');
+      else document.querySelectorAll('.time-node-marker')[4]?.classList.add('active');
+
+      updateTimeChartOption();
+    }
+
+    document.getElementById('btnAutoPlayTime').addEventListener('click', () => {
+      labState.timeWarp.isPlaying = !labState.timeWarp.isPlaying;
+      const icon = document.getElementById('playIcon');
+      if (labState.timeWarp.isPlaying) {
+        icon.innerText = '⏸';
+        soundPlayer.playPip(800);
+        labState.timeWarp.timer = setInterval(() => {
+          let next = (labState.timeWarp.dayIndex + 1) % 41;
+          setTimeDay(next);
+        }, 350);
+      } else {
+        icon.innerText = '▶';
+        clearInterval(labState.timeWarp.timer);
+      }
+    });
+
+    /* ========================================================
+       🧪 站点 3：变量实验台 (Controlled Variable Lab)
+       ======================================================== */
+    let varChart = null;
+    function initVariableChart() {
+      const dom = document.getElementById('variableEChart');
+      if (!dom || typeof echarts === 'undefined') return;
+      varChart = echarts.init(dom);
+      updateVariableChart();
+    }
+
+    function calculateVarCurve(temp) {
+      const data = [];
+      for (let day = 0; day <= 30; day++) {
+        let brix;
+        if (temp === 0) {
+          brix = 3.8 + (day * 0.19) - (day > 25 ? (day - 25) * 0.05 : 0);
+        } else if (temp === 5) {
+          brix = 3.8 + (day * 0.12) - (day > 22 ? (day - 22) * 0.04 : 0);
+        } else if (temp === 10) {
+          brix = 3.8 + (day * 0.05) - (day > 15 ? (day - 15) * 0.08 : 0);
+        } else {
+          brix = Math.max(2.1, 3.8 - (day * 0.065));
+        }
+        data.push(parseFloat(brix.toFixed(2)));
+      }
+      return data;
+    }
+
+    function updateVariableChart() {
+      if (!varChart) return;
+      const currentTemp = labState.variable.temp;
+      const currentDays = labState.variable.days;
+
+      const daysAxis = Array.from({ length: 31 }, (_, i) => `第${i}天`);
+      const curve0 = calculateVarCurve(0);
+      const curve5 = calculateVarCurve(5);
+      const curve10 = calculateVarCurve(10);
+      const curve25 = calculateVarCurve(25);
+
+      const option = {
+        backgroundColor: 'transparent',
+        title: {
+          text: '不同储藏温度下的糖度动态对比',
+          textStyle: { color: '#FFF', fontSize: 13 },
+          left: 10
+        },
+        tooltip: {
+          trigger: 'axis',
+          backgroundColor: 'rgba(10, 17, 36, 0.9)',
+          borderColor: '#00F0FF',
+          textStyle: { color: '#FFF' }
+        },
+        legend: {
+          data: ['0℃ 冰温组', '5℃ 冷藏组', '10℃ 地窖组', '25℃ 常温室内组'],
+          textStyle: { color: '#94A3B8' },
+          top: 5
+        },
+        grid: { left: '4%', right: '4%', bottom: '8%', top: '16%', containLabel: true },
+        xAxis: {
+          type: 'category',
+          data: daysAxis,
+          axisLine: { lineStyle: { color: 'rgba(255,255,255,0.2)' } },
+          axisLabel: { color: '#94A3B8', interval: 4 }
+        },
+        yAxis: {
+          type: 'value',
+          name: '糖度 (°Bx)',
+          min: 1.5, max: 9,
+          splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
+          axisLabel: { color: '#94A3B8' }
+        },
+        series: [
+          {
+            name: '0℃ 冰温组',
+            type: 'line',
+            data: curve0,
+            smooth: true,
+            lineStyle: { width: currentTemp === 0 ? 4 : 1.5, color: '#00F0FF' },
+            itemStyle: { color: '#00F0FF' }
+          },
+          {
+            name: '5℃ 冷藏组',
+            type: 'line',
+            data: curve5,
+            smooth: true,
+            lineStyle: { width: currentTemp === 5 ? 4 : 1.5, color: '#10B981' },
+            itemStyle: { color: '#10B981' }
+          },
+          {
+            name: '10℃ 地窖组',
+            type: 'line',
+            data: curve10,
+            smooth: true,
+            lineStyle: { width: currentTemp === 10 ? 4 : 1.5, color: '#FBBF24' },
+            itemStyle: { color: '#FBBF24' }
+          },
+          {
+            name: '25℃ 常温室内组',
+            type: 'line',
+            data: curve25,
+            smooth: true,
+            lineStyle: { width: currentTemp === 25 ? 4 : 1.5, color: '#F87171', type: 'dashed' },
+            itemStyle: { color: '#F87171' }
+          }
+        ]
+      };
+      varChart.setOption(option);
+
+      const curCurve = (currentTemp === 0 ? curve0 : currentTemp === 5 ? curve5 : currentTemp === 10 ? curve10 : curve25);
+      const finalBrix = curCurve[currentDays];
+      document.getElementById('varResultBrix').innerText = finalBrix.toFixed(1) + ' °Bx';
+
+      const rateEl = document.getElementById('varResultRate');
+      const qualityEl = document.getElementById('varResultQuality');
+      const titleEl = document.getElementById('varConclusionTitle');
+      const descEl = document.getElementById('varConclusionDesc');
+
+      if (currentTemp === 0) {
+        rateEl.innerText = '+0.19 %/天 (极强活跃)';
+        rateEl.className = 'stat-val val-green';
+        qualityEl.innerText = '95% (鲜嫩如新，多汁脆甜)';
+        qualityEl.className = 'stat-val val-cyan';
+        titleEl.innerText = `控制变量结论：0℃ 下存放 ${currentDays} 天，抗冻转化极为显著`;
+        descEl.innerText = `在 0℃ 极端低温下，β-淀粉酶活性被完全调动，30天糖分达到 ${finalBrix}°Bx；细胞内可溶性糖充当防冻液，抑制结冰，保水率高达 95% 无任何糠心。`;
+      } else if (currentTemp === 5) {
+        rateEl.innerText = '+0.12 %/天 (良好转化)';
+        rateEl.className = 'stat-val val-cyan';
+        qualityEl.innerText = '90% (质地爽口，品质稳定)';
+        titleEl.innerText = `控制变量结论：5℃ 冷藏存放 ${currentDays} 天，稳步增糖`;
+        descEl.innerText = `5℃ 冰箱冷藏能够有效抑制杂菌繁殖与过多呼吸消耗，同时缓慢激活酶促水解，适合普通家庭保鲜与增甜。`;
+      } else if (currentTemp === 10) {
+        rateEl.innerText = '+0.05 %/天 (微弱转化)';
+        rateEl.className = 'stat-val val-gold';
+        qualityEl.innerText = '82% (后期水分开始流失)';
+        titleEl.innerText = `控制变量结论：10℃ 地窖阴凉存放 ${currentDays} 天，效果有限`;
+        descEl.innerText = `10℃ 属于温和环境，低温刺激不足以全面唤醒防冻糖激增机制，半个月后由于呼吸消耗反而开始变软。`;
+      } else {
+        rateEl.innerText = '-0.065 %/天 (糖分被剧烈消耗)';
+        rateEl.className = 'stat-val val-red';
+        qualityEl.innerText = '48% (高度糠心！内部纤维化)';
+        titleEl.innerText = `控制变量结论：25℃ 常温室内存放 ${currentDays} 天，严重糠心变味`;
+        descEl.innerText = `在常温室内，植物无需防冻，呼吸作用异常旺盛，不仅不积累糖，反而将原有糖分与水分迅速消耗殆尽，导致萝卜中心海绵化、严重糠心！`;
+      }
+    }
+
+    document.querySelectorAll('.temp-preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        soundPlayer.playPip(650);
+        document.querySelectorAll('.temp-preset-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const temp = parseInt(btn.getAttribute('data-temp'));
+        labState.variable.temp = temp;
+        document.getElementById('currentSelectedTemp').innerText = temp + ' ℃';
+        updateVariableChart();
+      });
+    });
+
+    document.getElementById('varDaysSlider').addEventListener('input', (e) => {
+      const days = parseInt(e.target.value);
+      labState.variable.days = days;
+      document.getElementById('currentSelectedDays').innerText = days + ' 天';
+      updateVariableChart();
+    });
+
+    /* ========================================================
+       🥬 站点 4：蔬菜点名大挑战完整科学数据库与互动引擎
+       ======================================================== */
+    const vegDatabase = {
+      radish: {
+        id: 'radish',
+        name: '白萝卜',
+        emoji: '🥕',
+        family: '十字花科 · 肉质储藏根',
+        feature: '含有极高储备的直链与支链淀粉，组织细胞含水量大',
+        frostSweet: true,
+        befSugar: '3.8 °Bx',
+        aftSugar: '7.8 °Bx (+105%)',
+        aftNote: '显著变甜！淀粉酶水解产糖防冻',
+        audioCorrect: 'radish_correct',
+        audioWrong: 'radish_wrong',
+        mechanism: '白萝卜原产于温带。为了抵御霜降严寒，细胞内的β-淀粉酶如小剪刀般迅速活化，将长链淀粉大分子剪切分解成高浓度的麦芽糖和单糖。高浓度的糖水显著降低了细胞液的冰点（降至 -2.8℃），防止细胞结冰破裂，所以霜打后像水果一样脆甜多汁！',
+        voiceCorrect: '很好，小同学们！实验数据与你的假说完全一致。白萝卜打了霜是会显著变甜的！在零度低温信号刺激下，肉质根迅速启动淀粉水解酶，如纳米手术刀般将长链淀粉切断分解为麦芽糖和单糖。高浓度的糖液显著降低了细胞液冰点，避免细胞受冻结冰坏死。推断非常严密！',
+        voiceWrong: '注意了，检测舱发出了警报！你的假说与实证数据存在偏差。大家要牢记：白萝卜打了霜是会变甜的！为了在严冬里自我保护，它会特意将肉质根中的淀粉大量转化为高浓度糖分来防冻。请在实验手册上重点标出这一生理机制！'
+      },
+      tomato: {
+        id: 'tomato',
+        name: '西红柿 (番茄)',
+        emoji: '🍅',
+        family: '茄科 · 喜温果菜',
+        feature: '原产南美洲热带，极度怕冷，无淀粉酶低温转糖抗冻机制',
+        frostSweet: false,
+        befSugar: '4.5 °Bx',
+        aftSugar: '2.1 °Bx (组织水渍软烂变酸)',
+        aftNote: '受冻坏死！完全不会变甜',
+        audioCorrect: 'tomato_correct',
+        audioWrong: 'tomato_wrong',
+        mechanism: '西红柿是典型的喜温植物，最适生长温度在 20℃~25℃。当气温降到 0℃ 遇到白霜时，细胞内部的水分直接凝结成尖锐的冰晶，刺破细胞膜和细胞壁。果实发生水浸状凹陷、腐烂变质，完全没有转糖防冻的生理机制，反而发酸变味！',
+        voiceCorrect: '判断非常准确！实验数据证实：西红柿打了霜是绝不会变甜的！西红柿起源于热带，属于典型的喜温作物。在零度霜冻下，细胞液直接凝结成锋利的冰晶刺破细胞膜，导致水浸状软烂变酸，完全没有转糖防冻的超能力。实验结果与你的预测完全吻合！',
+        voiceWrong: '注意了，检测舱发出了警报！你的假说与实证数据存在偏差。大家要记牢：西红柿打了霜是绝不会变甜的！作为热带喜温蔬菜，它极度怕冷，遭遇霜冻细胞直接受冻坏死、软烂发酸，根本无法转化出糖分。这是截然不同的两个植物大类！'
+      },
+      cabbage: {
+        id: 'cabbage',
+        name: '大白菜',
+        emoji: '🥬',
+        family: '十字花科 · 结球叶菜',
+        feature: '民间俗称“霜打菜”，叶片薄壁细胞丰满，含丰富淀粉与蔗糖前体',
+        frostSweet: true,
+        befSugar: '3.1 °Bx',
+        aftSugar: '6.2 °Bx (+100%)',
+        aftNote: '甘甜软糯！十字花科抗冻典型',
+        audioCorrect: 'cabbage_correct',
+        audioWrong: 'cabbage_wrong',
+        mechanism: '民间俗语“白菜经霜美如笋”。大白菜属于十字花科耐寒蔬菜，遇到霜降低温，叶片组织中的转化酶与淀粉酶迅速活化，将淀粉转化为可溶性蔗糖与果糖，提高细胞渗透压防冻，使得叶帮软糯甘甜、纤维变细！',
+        voiceCorrect: '严谨的判断！实验数据证明，大白菜打了霜确实会显著变甜。俗称的霜打菜正是这一原理。低温促使叶片薄壁细胞中的转化酶全速运转，将淀粉转化为可溶性单糖，使得叶帮软糯甘甜、纤维软化。假说完全成立！',
+        voiceWrong: '注意了，检测舱发出了警报！大白菜打了霜其实是会变甜的！民间常说白菜经霜美如笋，它和白萝卜同属于十字花科耐寒家族，低温一到就会拼命合成糖分以增加细胞液浓度防冻。这一点要牢记在心！'
+      },
+      cucumber: {
+        id: 'cucumber',
+        name: '黄瓜',
+        emoji: '🥒',
+        family: '葫芦科 · 喜温瓜类',
+        feature: '原产喜马拉雅山热带雨林区，低于 5℃ 即发生生理冷害',
+        frostSweet: false,
+        befSugar: '2.8 °Bx',
+        aftSugar: '1.2 °Bx (冷害腐烂化水发苦)',
+        aftNote: '冷害坏死！表皮凹陷化水',
+        audioCorrect: 'cucumber_correct',
+        audioWrong: 'cucumber_wrong',
+        mechanism: '黄瓜属于典型喜温蔓生植物，在低于 5℃ 时就会发生严重生理冷害。霜降 0℃ 时，果皮出现凹陷水浸斑，瓜条失水软化化水，细胞膜脂相变硬化导致电解质外渗，不仅不会增加糖分，反而产生苦味素！',
+        voiceCorrect: '很准确的生物学判断！实验证实，黄瓜打了霜是绝对不会变甜的！黄瓜起源于热带雨林，在低于五度时就发生剧烈冷害。零度白霜会导致其表皮凹陷化水，细胞破裂并产生苦味素。预测与科学实证高度一致！',
+        voiceWrong: '注意了，检测舱警报响起！黄瓜打了霜是绝不会变甜的！黄瓜是典型的热带喜温作物，不具备任何低温抗冻基因，遭遇白霜不仅不会产糖，反而会迅速冻烂化水发苦！'
+      },
+      spinach: {
+        id: 'spinach',
+        name: '菠菜',
+        emoji: '🥬',
+        family: '苋科 · 极耐寒绿叶菜',
+        feature: '耐寒先锋植物，可耐受 -10℃ 严寒，富含可溶性糖与谷氨酸',
+        frostSweet: true,
+        befSugar: '2.5 °Bx',
+        aftSugar: '5.8 °Bx (+132%)',
+        aftNote: '鲜甜多汁！极度耐寒抗冻',
+        audioCorrect: 'spinach_correct',
+        audioWrong: 'spinach_wrong',
+        mechanism: '“霜打菠菜分外甜”。菠菜是极其耐寒的绿叶蔬菜，在霜降降温刺激下，菠菜体内可溶性糖（蔗糖、葡萄糖）和游离氨基酸含量暴增数倍，既能阻止细胞内部结冰，又带来了鲜甜浓郁的口感！',
+        voiceCorrect: '分析得很到位！实验证明，菠菜打了霜也是会明显变甜的！俗话说霜打菠菜分外甜，菠菜是植物界的耐寒冠军，在低温刺激下体内可溶性糖与谷氨酸含量成倍激增，防冻又鲜甜。假说完全验证！',
+        voiceWrong: '注意了，检测舱警报响起！菠菜打了霜其实是会变甜的！菠菜极其耐寒，天越冷它体内的糖分积聚越多，作为天然防冻液保护叶肉细胞不被冻伤。大家一定要记在实验报告里！'
+      },
+      chili: {
+        id: 'chili',
+        name: '辣椒',
+        emoji: '🌶️',
+        family: '茄科 · 喜温果菜',
+        feature: '原产中南美洲热带，喜温忌寒，遇霜冻叶脱落果变黑',
+        frostSweet: false,
+        befSugar: '3.6 °Bx',
+        aftSugar: '1.8 °Bx (果实变黑干瘪脱落)',
+        aftNote: '落叶干瘪！完全无法转糖',
+        audioCorrect: 'chili_correct',
+        audioWrong: 'chili_wrong',
+        mechanism: '辣椒生长需要充足的光热，遇 0℃ 霜冻叶片会全部脱落萎蔫，果实表面受冻形成黑色坏死斑。辣椒素依然存在，但内部糖分不仅没有合成，原有微量糖分还在冻伤过程中被消耗，绝不可能变甜！',
+        voiceCorrect: '观察非常深刻！实验表明，辣椒打了霜是绝不会变甜的！辣椒原产热带，对霜冻毫无抵御力。零度霜降会使其叶片萎蔫脱落，果肉受冻黑变干瘪，根本无法合成糖分。你的预测非常科学！',
+        voiceWrong: '注意了，检测舱发出警报！辣椒打了霜是不会变甜的！辣椒属于喜温茄科，极度畏寒，经霜之后直接冻伤枯死，完全不可能有糖分增加。同学们要注意区分耐寒与喜温作物的本质区别！'
+      },
+      carrot: {
+        id: 'carrot',
+        name: '胡萝卜',
+        emoji: '🥕',
+        family: '伞形科 · 肉质储藏根',
+        feature: '肉质根中储藏丰富类胡萝卜素与蔗糖，具备优良耐寒力',
+        frostSweet: true,
+        befSugar: '5.2 °Bx',
+        aftSugar: '8.6 °Bx (+65%)',
+        aftNote: '脆甜爽口！初冬糖分浓缩积聚',
+        audioCorrect: 'carrot_correct',
+        audioWrong: 'carrot_wrong',
+        mechanism: '胡萝卜的肉质根同样有强大的抗寒生理能力。霜降低温使得肉质根的呼吸消耗大幅减缓，而内部转化酶与淀粉水解酶保持工作，糖分持续浓缩积累，因此初冬采收的胡萝卜格外甜脆可口！',
+        voiceCorrect: '结论完全正确！实验证实，胡萝卜打了霜是会变甜的！肉质根在初冬低温下呼吸消耗减缓，而内部转化酶持续将储藏物质沉淀为可溶性糖，越吃越甜。你的假说完全经得起数据检验！',
+        voiceWrong: '注意了，检测舱警报响起！胡萝卜打了霜其实是会变甜的！它和白萝卜一样拥有深埋地下的储藏根，在低温下会主动浓缩可溶性糖以提高细胞渗透压防冻。请同学们在记录本上补充这一结论！'
+      },
+      eggplant: {
+        id: 'eggplant',
+        name: '茄子',
+        emoji: '🍆',
+        family: '茄科 · 喜热蔬菜',
+        feature: '原产印度热带强光高温区，低于 10℃ 停止生长，遇霜即死',
+        frostSweet: false,
+        befSugar: '2.6 °Bx',
+        aftSugar: '1.0 °Bx (表皮褐变果肉海绵坏死)',
+        aftNote: '组织坏死！变软脱水失去食用价值',
+        audioCorrect: 'eggplant_correct',
+        audioWrong: 'eggplant_wrong',
+        mechanism: '茄子是所有常见蔬菜中最怕寒冷的品种之一。霜降外界温度达 0℃ 以下时，茄子叶片即刻受冻枯死，果实表面失去光泽、皮下细胞坏死褐变，果肉如海绵脱水，完全丧失食用价值与甜度！',
+        voiceCorrect: '非常扎实的植物学常识！实验证实，茄子打了霜是绝不会变甜的！茄子原产印度热带强光高温区，低于十度即停滞生长，遭遇霜冻整株坏死，果肉海绵化脱水变质。预测与实测完全一致！',
+        voiceWrong: '注意了，检测舱警报响起！茄子打了霜是绝对不会变甜的！茄子是极度喜热蔬菜，只要遇到霜冻表皮就会褐变坏死、果肉腐变，完全不具备抗冻转糖的生理功能！'
+      }
+    };
+
+    // 快捷直接跳转全局方法
+    window.jumpToVegetableDirect = function() {
+      document.querySelectorAll('.station-tab-btn').forEach(b => {
+        if (b.getAttribute('data-station') === 'vegetable') b.click();
+      });
+      document.getElementById('panel-vegetable').scrollIntoView({ behavior: 'smooth' });
+    };
+
+    window.jumpToScopeDirect = function() {
+      document.querySelectorAll('.station-tab-btn').forEach(b => {
+        if (b.getAttribute('data-station') === 'scope') b.click();
+      });
+      document.getElementById('panel-scope').scrollIntoView({ behavior: 'smooth' });
+    };
+
+    // 更新界面展示选中的蔬菜
+    function selectVegetable(vegKey, autoVoice = false) {
+      const veg = vegDatabase[vegKey];
+      if (!veg) return;
+      labState.vegetable.current = vegKey;
+
+      // 更新卡片高亮状态
+      document.querySelectorAll('.veg-item-card').forEach(c => {
+        if (c.getAttribute('data-veg') === vegKey) {
+          c.classList.add('selected');
+        } else {
+          c.classList.remove('selected');
+        }
+      });
+
+      // 更新左侧聚光灯
+      document.getElementById('spotlightEmoji').innerText = veg.emoji;
+      document.getElementById('spotlightName').innerText = veg.name;
+      document.getElementById('spotlightFeature').innerText = veg.feature;
+      document.getElementById('vegFamilyBadge').innerText = veg.family;
+
+      // 默认重置猜想选项为未选择或保持默认
+      setPredictionOption('sweet');
+
+      // 重置右侧检验舱为就绪待命状态
+      document.getElementById('verifyInitialHint').style.display = 'block';
+      document.getElementById('verifyLoadingState').style.display = 'none';
+      document.getElementById('verifyReportContent').style.display = 'none';
+
+      // 点名语音提醒 (陈博导沉稳男声)
+      if (autoVoice && labState.speechEnabled) {
+        voiceAnnouncer.playKey('roll_' + veg.id, `现在进行学术点名抽检：${veg.name}！同学们，请运用植物生理学知识提出假说：它打了霜究竟会不会变甜？`);
+      }
+    }
+
+    // 设置猜想选项
+    function setPredictionOption(predKey) {
+      labState.vegetable.prediction = predKey;
+      const btnSweet = document.getElementById('btnPredSweet');
+      const btnRot = document.getElementById('btnPredRot');
+
+      if (predKey === 'sweet') {
+        btnSweet.classList.add('active');
+        btnRot.classList.remove('active');
+      } else {
+        btnRot.classList.add('active');
+        btnSweet.classList.remove('active');
+      }
+    }
+
+    // 随机点名抽检
+    let isRolling = false;
+    function runRandomRollCall() {
+      if (isRolling) return;
+      isRolling = true;
+      voiceAnnouncer.stop();
+
+      const cards = Array.from(document.querySelectorAll('.veg-item-card'));
+      let step = 0;
+      const totalSteps = 16 + Math.floor(Math.random() * 8);
+      let delay = 60;
+
+      function tickRoll() {
+        cards.forEach(c => c.classList.remove('roll-highlight'));
+        const currentCard = cards[step % cards.length];
+        currentCard.classList.add('roll-highlight');
+        soundPlayer.playLotteryTick();
+
+        step++;
+        if (step < totalSteps) {
+          delay += 14;
+          setTimeout(tickRoll, delay);
+        } else {
+          cards.forEach(c => c.classList.remove('roll-highlight'));
+          const finalKey = currentCard.getAttribute('data-veg');
+          soundPlayer.playChime();
+          selectVegetable(finalKey, true);
+          isRolling = false;
+        }
+      }
+      tickRoll();
+    }
+
+    // 绑定点名卡片点击事件
+    document.querySelectorAll('.veg-item-card').forEach(card => {
+      card.addEventListener('click', () => {
+        soundPlayer.playPip(420);
+        const vegKey = card.getAttribute('data-veg');
+        selectVegetable(vegKey, false);
+      });
+    });
+
+    // 绑定假说预测选项点击
+    document.getElementById('btnPredSweet').addEventListener('click', () => {
+      soundPlayer.playPip(480);
+      setPredictionOption('sweet');
+    });
+
+    document.getElementById('btnPredRot').addEventListener('click', () => {
+      soundPlayer.playPip(320);
+      setPredictionOption('rot');
+    });
+
+    // 绑定随机点名按钮
+    document.getElementById('btnRollDice').addEventListener('click', () => {
+      runRandomRollCall();
+    });
+
+    document.getElementById('btnNextRandomVeg').addEventListener('click', () => {
+      runRandomRollCall();
+    });
+
+    // 语音开关控制
+    document.getElementById('btnToggleSpeech').addEventListener('click', () => {
+      labState.speechEnabled = !labState.speechEnabled;
+      const icon = document.getElementById('speechIcon');
+      const text = document.getElementById('speechStatusText');
+      if (labState.speechEnabled) {
+        icon.innerText = '🔊';
+        text.innerText = '语音播报：开启';
+        soundPlayer.playPip(440);
+      } else {
+        icon.innerText = '🔇';
+        text.innerText = '语音播报：关闭';
+        voiceAnnouncer.stop();
+      }
+    });
+
+    // 重播语音按钮
+    function replayCurrentVoice() {
+      if (labState.vegetable.lastVoiceKey) {
+        voiceAnnouncer.playKey(labState.vegetable.lastVoiceKey, labState.vegetable.lastVoiceText);
+      } else if (labState.vegetable.lastVoiceText) {
+        voiceAnnouncer.playKey('audition', labState.vegetable.lastVoiceText);
+      }
+    }
+    document.getElementById('btnReplayVoice').addEventListener('click', replayCurrentVoice);
+    document.getElementById('btnReplayVoiceSmall').addEventListener('click', replayCurrentVoice);
+
+    // 启动冷冻实验舱检验与假说裁决
+    document.getElementById('btnRunVerification').addEventListener('click', () => {
+      const veg = vegDatabase[labState.vegetable.current];
+      const studentPred = labState.vegetable.prediction;
+      const isCorrect = (studentPred === 'sweet' && veg.frostSweet) || (studentPred === 'rot' && !veg.frostSweet);
+
+      // 显示冷冻中过渡动画
+      document.getElementById('verifyInitialHint').style.display = 'none';
+      document.getElementById('verifyReportContent').style.display = 'none';
+      const loading = document.getElementById('verifyLoadingState');
+      loading.style.display = 'block';
+      const bar = document.getElementById('verifyProgressBar');
+      bar.style.width = '10%';
+      soundPlayer.playPip(280, 'triangle', 0.2);
+
+      setTimeout(() => { bar.style.width = '60%'; }, 200);
+      setTimeout(() => { bar.style.width = '100%'; }, 500);
+
+      setTimeout(() => {
+        loading.style.display = 'none';
+        const rep = document.getElementById('verifyReportContent');
+        rep.style.display = 'block';
+
+        labState.vegetable.testedSet.add(veg.id);
+        document.getElementById('vegProgressCount').innerText = `${labState.vegetable.testedSet.size} / 8`;
+
+        const statusIcon = document.getElementById('verifyStatusIcon');
+        const badge = document.getElementById('verifyBadgeResult');
+        const chamberBox = document.getElementById('verifyChamberBox');
+
+        let voiceScript = '';
+
+        if (isCorrect) {
+          labState.vegetable.streak++;
+          labState.vegetable.score += 10;
+          document.getElementById('vegStreakCount').innerText = labState.vegetable.streak;
+
+          statusIcon.innerText = '🎉';
+          badge.innerText = '预测完全准确 🎯 实验结果和你的预测一样！';
+          badge.style.background = 'var(--green-neon)';
+          badge.style.color = '#070B19';
+
+          chamberBox.classList.add('glow-success');
+          setTimeout(() => chamberBox.classList.remove('glow-success'), 2000);
+
+          soundPlayer.playFanfare();
+          confettiCannon.burst(160);
+
+          voiceScript = veg.voiceCorrect;
+        } else {
+          labState.vegetable.streak = 0;
+          document.getElementById('vegStreakCount').innerText = '0';
+
+          statusIcon.innerText = '🚨';
+          badge.innerText = '预测存在偏差 🚨 实验结果和你的预测不一样哦！';
+          badge.style.background = '#EF4444';
+          badge.style.color = '#FFF';
+
+          alarmController.trigger();
+
+          voiceScript = veg.voiceWrong;
+        }
+
+        const count = labState.vegetable.testedSet.size;
+        const badgeTitle = document.getElementById('vegBadgeTitle');
+        if (count >= 8 && labState.vegetable.streak >= 5) {
+          badgeTitle.innerText = '👑 STEAM 首席植物科学家';
+          badgeTitle.style.color = '#FFD700';
+        } else if (count >= 5) {
+          badgeTitle.innerText = '🌟 霜降植物探秘家';
+          badgeTitle.style.color = 'var(--cyan-neon)';
+        } else if (count >= 3) {
+          badgeTitle.innerText = '🔍 科学小侦探';
+          badgeTitle.style.color = '#34D399';
+        }
+
+        document.getElementById('verifyVegTitle').innerText = `${veg.name} · AI 实验实证报告`;
+        document.getElementById('verifyBefSugar').innerText = veg.befSugar;
+        document.getElementById('verifyAftSugar').innerText = veg.aftSugar;
+        document.getElementById('verifyAftNote').innerText = veg.aftNote;
+
+        const aftBox = document.getElementById('verifyAftSugarBox');
+        if (veg.frostSweet) {
+          aftBox.style.borderLeftColor = 'var(--gold-neon)';
+          document.getElementById('verifyAftSugar').style.color = 'var(--gold-neon)';
+        } else {
+          aftBox.style.borderLeftColor = '#EF4444';
+          document.getElementById('verifyAftSugar').style.color = '#FCA5A5';
+        }
+
+        document.getElementById('verifyMechanism').innerHTML = `
+          <div style="font-weight: 800; color: var(--cyan-neon); margin-bottom: 6px;">
+            【${isCorrect ? '✅ 假说验证成功' : '💡 科学原理解析'}】${veg.verdictShort || veg.name + (veg.frostSweet ? '打了霜是会变甜的！' : '打了霜是不会变甜的！')}
+          </div>
+          <div>${isCorrect ? veg.mechanism : ('<strong>别灰心！</strong>' + veg.mechanism)}</div>
+        `;
+
+        labState.vegetable.lastVoiceText = voiceScript;
+        labState.vegetable.lastVoiceKey = isCorrect ? veg.audioCorrect : veg.audioWrong;
+        voiceAnnouncer.playKey(labState.vegetable.lastVoiceKey, voiceScript);
+      }, 750);
+    });
+
+    /* ========================================================
+       📋 抽屉模态框：科学数据溯源与学术文献背书
+       ======================================================== */
+    const drawer = document.getElementById('evidenceDrawer');
+    document.getElementById('btnOpenEvidence').addEventListener('click', () => {
+      soundPlayer.playPip(850);
+      drawer.classList.add('open');
+    });
+    document.getElementById('btnCloseEvidence').addEventListener('click', () => {
+      soundPlayer.playPip(450);
+      drawer.classList.remove('open');
+    });
+    drawer.addEventListener('click', (e) => {
+      if (e.target === drawer) {
+        drawer.classList.remove('open');
+      }
+    });
+
+    /* ========================================================
+       🤖 糖糖博士 · 萝卜AI科学小助手交互
+       ======================================================== */
+    const aiTrigger = document.getElementById('aiTriggerBtn');
+    const aiWindow = document.getElementById('aiDialogWindow');
+    const aiChatBox = document.getElementById('aiChatBox');
+
+    aiTrigger.addEventListener('click', () => {
+      soundPlayer.playPip(950);
+      const isVisible = aiWindow.style.display === 'flex';
+      aiWindow.style.display = isVisible ? 'none' : 'flex';
+    });
+
+    document.getElementById('btnCloseAI').addEventListener('click', () => {
+      aiWindow.style.display = 'none';
+    });
+
+    function askAIQuestion(q) {
+      appendChatMessage(q, 'user');
+      soundPlayer.playPip(440);
+
+      setTimeout(() => {
+        let answer = '';
+        let audioKey = '';
+        if (q.includes('为什么霜打后变甜') || q.includes('为什么霜打的萝卜像水果')) {
+          answer = '问得太棒了！因为霜降的寒冷促使萝卜体内的淀粉酶全速运转，将没有甜味的大分子淀粉剪切成了高浓度的麦芽糖和单糖。高浓度的糖能降低冰点，防止细胞受冻结冰，所以吃起来甜美多汁如雪梨！';
+          audioKey = 'q1_sweet';
+        } else if (q.includes('感知降温') || q.includes('植物没有大脑')) {
+          answer = '好敏锐的观察！植物虽然没有大脑，但它们的细胞膜上有像温度感应门一样的蛋白质通道。当温度变低时，细胞膜变硬，钙离子就会大量涌入细胞内，向细胞核发出警报：快启动淀粉酶转糖防冻！';
+          audioKey = 'q2_temp';
+        } else if (q.includes('常温放久了') || q.includes('常温下放久了')) {
+          answer = '如果不降温直接在 25℃ 室内放久了，萝卜不仅不会变甜，反而会发生剧烈的呼吸消耗！它会把体内的糖和水分消耗光，出现内部空心、纤维化的糠心现象，变得索然无味！';
+          audioKey = 'q3_warm';
+        } else if (q.includes('人吃糖')) {
+          answer = '哈哈，人体是恒温动物，体温始终保持在 37℃ 左右，靠神经系统调节和肌肉产热保暖，不需要像植物一样靠把细胞液变成浓糖水来防冻哦！';
+          audioKey = 'q4_human';
+        } else {
+          answer = `“${q}” 是一个非常棒的科学切入点！在我们的 AI 实验室里，正是通过观察低温下酶对淀粉长链的剪切，解释了植物在面对大自然寒冷时的智慧自卫法则！`;
+          audioKey = 'audition';
+        }
+        appendChatMessage(answer, 'assistant');
+        voiceAnnouncer.playKey(audioKey, answer);
+      }, 400);
+    }
+
+    function sendUserAIMessage() {
+      const input = document.getElementById('aiInputText');
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      askAIQuestion(text);
+    }
+
+    function appendChatMessage(text, role) {
+      const msg = document.createElement('div');
+      msg.className = `ai-msg-bubble ${role === 'user' ? 'ai-msg-user' : 'ai-msg-assistant'}`;
+      msg.innerText = text;
+      aiChatBox.appendChild(msg);
+      aiChatBox.scrollTop = aiChatBox.scrollHeight;
+    }
+
+    function speakText(text) {
+      if (!labState.soundEnabled) return;
+      voiceAnnouncer.playKey('audition', text);
+    }
+
+    window.addEventListener('load', () => {
+      initTimeChart();
+      initVariableChart();
+      setTimeDay(23);
+      jumpToScopeStage(1);
+    });
+  </script>
+</body>
+</html>
